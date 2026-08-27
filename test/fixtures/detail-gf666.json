@@ -1,0 +1,323 @@
+{
+  "order": {
+    "orderID": "001740450298-C8D2EXU3RGMHE2",
+    "driver": null,
+    "eater": {
+      "name": "Khach Test",
+      "mobileNumber": "+84 9000 0000 0",
+      "comment": "Gặp mặt ở sảnh",
+      "address": null
+    },
+    "itemInfo": {
+      "count": 4,
+      "items": [
+        {
+          "name": "🍓 Que Quế Dâu Hồng Ngọt Ngào",
+          "quantity": 1,
+          "fare": {
+            "currencySymbol": "₫",
+            "priceDisplay": "5.000",
+            "originalItemPriceDisplay": "5.000",
+            "beforeAdjustedPriceDisplay": "5.000",
+            "priceFloat": 5000,
+            "priceInMin": 5000
+          },
+          "comment": "",
+          "modifierGroups": [],
+          "discountInfo": null,
+          "itemID": "VNITE2026060506510170737",
+          "editedStatus": 0,
+          "weight": null,
+          "itemCode": "",
+          "specialItemType": "",
+          "soldByWeight": false,
+          "outOfStockInstruction": null,
+          "parentID": "",
+          "parentName": "",
+          "skuID": "",
+          "isAddedAsReplacement": false,
+          "image": "https://huawei-food-cms.grab.com/item/VNITE2026060506510170737/photos/menueditor_item_564fe0b7292d4261823abc60bc6c8eea_1780642067419622384.jpg",
+          "itemKey": "VNITE2026060506510170737-d8435ecb7583424c90bbfc5fbb76dfa9",
+          "barcode": "",
+          "originalItem": null,
+          "outOfStockInstructionV2": {
+            "title": "REMOVE",
+            "replacementItems": null
+          },
+          "originalFare": null,
+          "isUneditable": false,
+          "itemTags": null,
+          "memberPriceInfo": null
+        },
+        {
+          "name": "Combo Kem Song Vị Sầu Riêng-Nho&Matcha 🍇",
+          "quantity": 2,
+          "fare": {
+            "currencySymbol": "₫",
+            "priceDisplay": "100.000",
+            "originalItemPriceDisplay": "100.000",
+            "beforeAdjustedPriceDisplay": "100.000",
+            "priceFloat": 50000,
+            "priceInMin": 50000
+          },
+          "comment": "",
+          "modifierGroups": [],
+          "discountInfo": null,
+          "itemID": "VNITE2026060506405918986",
+          "editedStatus": 0,
+          "weight": null,
+          "itemCode": "",
+          "specialItemType": "",
+          "soldByWeight": false,
+          "outOfStockInstruction": null,
+          "parentID": "",
+          "parentName": "",
+          "skuID": "",
+          "isAddedAsReplacement": false,
+          "image": "https://huawei-food-cms.grab.com/item/VNITE2026060506405918986/photos/menueditor_item_3cb7d0bc25a340e385a07f45265af7d2_1780641606809969806.jpg",
+          "itemKey": "VNITE2026060506405918986-034a08754eeb4f5cabdbf63328c0f908",
+          "barcode": "",
+          "originalItem": null,
+          "outOfStockInstructionV2": {
+            "title": "REMOVE",
+            "replacementItems": null
+          },
+          "originalFare": null,
+          "isUneditable": false,
+          "itemTags": null,
+          "memberPriceInfo": null
+        },
+        {
+          "name": "Kem Dưa Hấu- Sầu Matcha",
+          "quantity": 1,
+          "fare": {
+            "currencySymbol": "₫",
+            "priceDisplay": "36.000",
+            "originalItemPriceDisplay": "36.000",
+            "beforeAdjustedPriceDisplay": "36.000",
+            "priceFloat": 36000,
+            "priceInMin": 36000
+          },
+          "comment": "",
+          "modifierGroups": [],
+          "discountInfo": null,
+          "itemID": "VNITE2026060506354637101",
+          "editedStatus": 0,
+          "weight": null,
+          "itemCode": "",
+          "specialItemType": "",
+          "soldByWeight": false,
+          "outOfStockInstruction": null,
+          "parentID": "",
+          "parentName": "",
+          "skuID": "",
+          "isAddedAsReplacement": false,
+          "image": "https://huawei-food-cms.grab.com/item/VNITE2026060506354637101/photos/menueditor_item_3dba4ce2242647eeb83fa90ee2af135a_1780641265740040800.jpg",
+          "itemKey": "VNITE2026060506354637101-eeb3eb6924ed4e0dba6f52072e950889",
+          "barcode": "",
+          "originalItem": null,
+          "outOfStockInstructionV2": {
+            "title": "REMOVE",
+            "replacementItems": null
+          },
+          "originalFare": null,
+          "isUneditable": false,
+          "itemTags": null,
+          "memberPriceInfo": null
+        }
+      ],
+      "merchantItems": null
+    },
+    "fare": {
+      "currencySymbol": "₫",
+      "totalInCent": 0,
+      "adjustmentByDriverInCent": 0,
+      "totalDisplay": "141.000",
+      "subTotalDisplay": "141.000",
+      "taxDisplay": "0",
+      "adjustmentByDriverDisplay": "",
+      "promotionDisplay": "2.000",
+      "deliveryFeeDisplay": "13.000",
+      "passengerTotalDisplay": "152.000",
+      "totalDiscountAmountDisplay": "",
+      "reducedPriceDisplay": "156.000",
+      "revampedSubtotalDisplay": "141.000",
+      "cancelledDisplay": "0",
+      "taxRate": "0.0000",
+      "merchantChargeDisplay": "",
+      "isIncludeMerchantChargeTax": false,
+      "subtotalIncludeMerchantCharge": "141.000",
+      "chargeFeeDescription": {
+        "en": "Restaurant packaging charge",
+        "id": "Biaya kemasan resto",
+        "ms": "Caj pembungkusan dari restoran",
+        "th": "ค่าบรรจุภัณฑ",
+        "vi": "Phí đồ gói mang về",
+        "zh": "商家包装费",
+        "zh-Hant-TW": "餐廳包裝費用"
+      },
+      "smallOrderFeeDisplay": "0",
+      "serviceChargeFeeDisplay": "",
+      "serviceChargeFeeDescription": {
+        "en": "Service charge",
+        "id": "Biaya layanan",
+        "km": "ការគិតថ្លៃលើសេវាកម្ម",
+        "ms": "Caj Perkhidmatan",
+        "my": "ဝန်ဆောင်စရိတ်",
+        "ru": "Сервисный сбор",
+        "th": "ค่าบริการ",
+        "vi": "Phí dịch vụ",
+        "zh": "服务费",
+        "zh-hant-tw": "服務費用"
+      },
+      "daxPayMexFareDisplay": "0",
+      "mexCommissionDisplay": "0",
+      "onBehalfWithholdTaxDisplay": "0",
+      "mexVatAmountDisplay": "0",
+      "mexPitAmountDisplay": "0",
+      "originalPriceInMin": 141000,
+      "bcrsDepositDisplay": "",
+      "bcrsDepositInCent": 0,
+      "bcrsDepositItemCount": 0
+    },
+    "times": {
+      "createdAt": "2026-08-27T10:07:20Z",
+      "deliveredAt": "2026-08-27T10:17:20Z",
+      "completedAt": "2026-08-27T10:07:28Z",
+      "expiredAt": "2026-08-27T10:12:28Z",
+      "acceptedAt": null,
+      "cancelledAt": null,
+      "readyAt": null,
+      "displayedAt": null,
+      "driverArriveRestoAt": null,
+      "preparationCompletedAt": null
+    },
+    "state": "ALLOCATING",
+    "merchant": {
+      "ID": "5-C7XUNYEVEADYN2"
+    },
+    "deliveryTaskpoolStatus": "",
+    "preparationTaskpoolStatus": "NEW",
+    "cancelCode": 0,
+    "displayID": "GF-666",
+    "bookingCode": "A-9OTWTPEGWQGEAV",
+    "paymentMethod": "Cash",
+    "acceptedViaCall": false,
+    "acceptedViaAA": false,
+    "acknowledgedForAA": false,
+    "qsrModelType": 0,
+    "hasPromo": false,
+    "receiptAdditionalInfo": {
+      "supportFeatureFlags": {
+        "showCashToCollect": false
+      },
+      "printedCount": 0
+    },
+    "allowComplete": false,
+    "isTakeawayOrder": false,
+    "orderLevelDiscounts": null,
+    "flags": {
+      "showReceiptEaterAddress": false,
+      "showForceCompleteButton": false,
+      "hideOrderDriverInfo": false,
+      "isPrintOrderRevampReceipt": true,
+      "isGrabInitiatedSplitOrder": false,
+      "isAdsMarketingAttributed": false,
+      "isPaxNewCustomer": true,
+      "isPayOnCollect": false,
+      "merchantFeatureFlags": 2,
+      "isOPTPhase5Enabled": true,
+      "isManualAcceptMode": true,
+      "isM41Order": false,
+      "isTH5050Order": false,
+      "isCrossSell": false
+    },
+    "scheduledOrderInfo": null,
+    "isLargeOrder": false,
+    "isEditable": true,
+    "isOrderEdited": false,
+    "isOrderWithFriends": false,
+    "uneditableReason": 0,
+    "cutlery": 2,
+    "cancelBy": "",
+    "cancelRole": "",
+    "leadsGenData": {
+      "isDeliverByMex": false,
+      "isOrderValueLow": false,
+      "deliveryFee": "",
+      "timeLeftToEnableCompleteButton": 0,
+      "geAllocationStatus": 0,
+      "grabExpressDriver": null,
+      "paxDistanceToMex": 1326
+    },
+    "isBusyModeOrder": false,
+    "busyModeOrderPickupTime": "2026-08-27T11:07:20.003838837Z",
+    "busyModeApproach": 0,
+    "payMerchant": false,
+    "cancelledMsg": "",
+    "orderFlags": 4035229664170477600,
+    "orderStatsFlags": 33,
+    "receiptFlags": 0,
+    "dineInInfo": null,
+    "chatroomInfo": {
+      "roomID": "",
+      "status": 0
+    },
+    "membershipID": "",
+    "mcorInfo": null,
+    "mexReimbursementInfo": null,
+    "displayHighlights": {
+      "highlightItemCount": false,
+      "missingItemIDs": null,
+      "highMIWIRisk": false,
+      "highMIWIRiskItemIDs": []
+    },
+    "giftInfo": null,
+    "orderBookings": null,
+    "incidents": {
+      "hasError": false,
+      "data": []
+    },
+    "voucherInfo": null,
+    "stampInfo": {
+      "userConsentMsg": ""
+    },
+    "mexOPT": {
+      "submittedOPTFromMex": 300,
+      "sourceOPT": 0,
+      "isPreparationTaskDelayed": false,
+      "isReadyButtonAbused": false,
+      "actualOPT": null,
+      "estimatedOPTDoneAt": "2026-08-27T10:12:28.003838837Z",
+      "remainEditableOPTInSec": 0,
+      "configuration": {
+        "timeAdjustment": {
+          "minimumOPT": 1,
+          "maximumOPT": 60,
+          "maximumAdditionOPT": 20,
+          "maximumSubtractionOPT": 59
+        },
+        "step": 1,
+        "timerDuration": 2,
+        "editOPTWindowInSec": 60,
+        "editableOPTWindowInSec": 180
+      }
+    },
+    "replacementInfo": null,
+    "isEditableByPax": false,
+    "preparationTaskID": "",
+    "orderChangeLog": null,
+    "isEditableByPaxV2": false,
+    "reservationDeposit": null,
+    "orderReadyPhotoDetail": null,
+    "th5050OrderDetail": null,
+    "upcomingData": null,
+    "recovery": {
+      "isRecoveryAllowed": false,
+      "settings": {
+        "maxRefundAmountInMin": 141000,
+        "refundReceivingAccount": ""
+      }
+    }
+  }
+}

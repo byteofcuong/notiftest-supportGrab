@@ -1,0 +1,113 @@
+{
+  "orderStats": {
+    "unreadNumberInNew": 1,
+    "numberInNew": 1
+  },
+  "orders": [
+    {
+      "orderID": "001740450298-C8D2EXU3RGMHE2",
+      "displayID": "GF-666",
+      "driver": {
+        "ID": 0,
+        "name": "",
+        "avatar": ""
+      },
+      "eater": {
+        "ID": 100000001,
+        "name": "Khach Test"
+      },
+      "itemInfo": {
+        "count": 4,
+        "items": [
+          {
+            "itemID": "VNITE2026060506510170737",
+            "name": "🍓 Que Quế Dâu Hồng Ngọt Ngào",
+            "quantity": 1,
+            "weight": null
+          },
+          {
+            "itemID": "VNITE2026060506405918986",
+            "name": "Combo Kem Song Vị Sầu Riêng-Nho&Matcha 🍇",
+            "quantity": 2,
+            "weight": null
+          },
+          {
+            "itemID": "VNITE2026060506354637101",
+            "name": "Kem Dưa Hấu- Sầu Matcha",
+            "quantity": 1,
+            "weight": null
+          }
+        ]
+      },
+      "times": {
+        "createdAt": "2026-08-27T10:07:28Z",
+        "deliveredAt": "2026-08-27T10:17:28Z",
+        "completedAt": null,
+        "expiredAt": "2026-08-27T10:12:28Z",
+        "acceptedAt": null,
+        "cancelledAt": null,
+        "readyAt": null,
+        "displayedAt": null,
+        "driverArriveRestoAt": null,
+        "preparationCompletedAt": null
+      },
+      "state": "ALLOCATING",
+      "deliveryTaskpoolStatus": "",
+      "preparationTaskpoolStatus": "NEW",
+      "scheduleOrderInfo": {
+        "isScheduledOrder": false,
+        "expectedDeliveryTime": null,
+        "pickupTime": null
+      },
+      "geAllocationStatus": 0,
+      "busyModeOrderPickupTime": "2026-08-27T11:07:28.003838837Z",
+      "orderFlags": 4035229664170477600,
+      "orderStatsFlags": 33,
+      "dineInInfo": null,
+      "labels": {
+        "acceptedViaCall": false,
+        "isRead": false,
+        "isOrderEdited": false,
+        "acceptedViaAA": false,
+        "hasPromo": false,
+        "isTakeawayOrder": false,
+        "isDeliverByMex": false,
+        "isBusyModeOrder": false,
+        "printCount": 0,
+        "isGiftOrder": false
+      },
+      "chatroomInfo": {
+        "roomID": "",
+        "status": 0
+      },
+      "mcorInfo": null,
+      "orderValue": "141.000",
+      "preparationTaskID": "001740450298-C8D2EXU3RGMHE2-PREP-C8D2EXVART5HE2",
+      "flags": {
+        "isGrabInitiatedSplitOrder": false,
+        "isOPTPhase5Enabled": true,
+        "isManualAcceptMode": true,
+        "isTH5050Order": false
+      },
+      "mexOPT": {
+        "submittedOPTFromMex": 300,
+        "sourceOPT": 0,
+        "isPreparationTaskDelayed": false,
+        "isReadyButtonAbused": false,
+        "actualOPT": null,
+        "estimatedOPTDoneAt": "2026-08-27T10:12:28.003838837Z",
+        "remainEditableOPTInSec": 0
+      },
+      "replacementInfo": null,
+      "orderReadyPhotoDetail": null,
+      "th5050OrderDetail": null,
+      "upcomingData": null,
+      "miwiRisk": {
+        "highRisk": false
+      }
+    }
+  ],
+  "pollInterval": 60,
+  "nextSearchToken": "|",
+  "serverTime": "2026-08-27T10:08:21.060677925Z"
+}

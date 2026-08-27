@@ -1,0 +1,39 @@
+{
+  "isOpen": true,
+  "closeReason": 0,
+  "isInSpecialOpeningHourRange": false,
+  "meta": {
+    "pauseEndingTime": null,
+    "reopeningTime": null,
+    "isPausedByCapacityReached": false,
+    "currentBusyModePrepTime": 0,
+    "isMexBusyModeAutoChanged": false,
+    "busyModeStartTime": "0001-01-01T00:00:00Z",
+    "pauseDayCount": 0,
+    "openUntil": "2026-08-27T22:00:00+07:00",
+    "closedUntil": null,
+    "isOpen24Hours": false,
+    "pauseCause": ""
+  },
+  "isMexInBusyMode": false,
+  "needDailyCheckIn": false,
+  "checkInMessage": {
+    "title": "",
+    "message": "",
+    "bottomMessage": ""
+  },
+  "upcomingFestive": null,
+  "manualAcceptMode": {
+    "maChangeType": 2,
+    "content": "",
+    "skipTempPauseStatus": false
+  },
+  "statusDisplayInfo": {
+    "statusLabel": "Open",
+    "statusColor": "#00B14F",
+    "backgroundColor": "#00B14F",
+    "textColor": "#FFFFFF",
+    "subTextColor": "#D9FCDE",
+    "statusContent": "Đang mở cửa"
+  }
+}

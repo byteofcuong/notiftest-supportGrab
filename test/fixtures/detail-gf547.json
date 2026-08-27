@@ -1,0 +1,445 @@
+{
+  "order": {
+    "orderID": "001500221566-C8D2VEDVCY5WSA",
+    "driver": null,
+    "eater": {
+      "name": "Khach Test",
+      "mobileNumber": "+84 9000 0000 0",
+      "comment": "Gặp mặt ở sảnh",
+      "address": null
+    },
+    "itemInfo": {
+      "count": 5,
+      "items": [
+        {
+          "name": "🍓 Que Quế Dâu Hồng Ngọt Ngào",
+          "quantity": 1,
+          "fare": {
+            "currencySymbol": "₫",
+            "priceDisplay": "5.000",
+            "originalItemPriceDisplay": "5.000",
+            "beforeAdjustedPriceDisplay": "5.000",
+            "priceFloat": 5000,
+            "priceInMin": 5000
+          },
+          "comment": "note: test note kem quế dâu",
+          "modifierGroups": [],
+          "discountInfo": null,
+          "itemID": "VNITE2026060506510170737",
+          "editedStatus": 0,
+          "weight": null,
+          "itemCode": "",
+          "specialItemType": "",
+          "soldByWeight": false,
+          "outOfStockInstruction": null,
+          "parentID": "",
+          "parentName": "",
+          "skuID": "",
+          "isAddedAsReplacement": false,
+          "image": "https://huawei-food-cms.grab.com/item/VNITE2026060506510170737/photos/menueditor_item_564fe0b7292d4261823abc60bc6c8eea_1780642067419622384.jpg",
+          "itemKey": "VNITE2026060506510170737-67655159db9b4132baab6d1ff445b3a0",
+          "barcode": "",
+          "originalItem": null,
+          "outOfStockInstructionV2": {
+            "title": "REMOVE",
+            "replacementItems": null
+          },
+          "originalFare": null,
+          "isUneditable": false,
+          "itemTags": null,
+          "memberPriceInfo": null
+        },
+        {
+          "name": "Kem Dưa Hấu- Sầu Matcha",
+          "quantity": 1,
+          "fare": {
+            "currencySymbol": "₫",
+            "priceDisplay": "36.000",
+            "originalItemPriceDisplay": "36.000",
+            "beforeAdjustedPriceDisplay": "36.000",
+            "priceFloat": 36000,
+            "priceInMin": 36000
+          },
+          "comment": "",
+          "modifierGroups": [],
+          "discountInfo": null,
+          "itemID": "VNITE2026060506354637101",
+          "editedStatus": 0,
+          "weight": null,
+          "itemCode": "",
+          "specialItemType": "",
+          "soldByWeight": false,
+          "outOfStockInstruction": null,
+          "parentID": "",
+          "parentName": "",
+          "skuID": "",
+          "isAddedAsReplacement": false,
+          "image": "https://huawei-food-cms.grab.com/item/VNITE2026060506354637101/photos/menueditor_item_3dba4ce2242647eeb83fa90ee2af135a_1780641265740040800.jpg",
+          "itemKey": "VNITE2026060506354637101-d4cbab839f704bbab4824481493445c2",
+          "barcode": "",
+          "originalItem": null,
+          "outOfStockInstructionV2": {
+            "title": "REMOVE",
+            "replacementItems": null
+          },
+          "originalFare": null,
+          "isUneditable": false,
+          "itemTags": null,
+          "memberPriceInfo": null
+        },
+        {
+          "name": "Sting Đỏ",
+          "quantity": 1,
+          "fare": {
+            "currencySymbol": "₫",
+            "priceDisplay": "26.000",
+            "originalItemPriceDisplay": "19.000",
+            "beforeAdjustedPriceDisplay": "19.000",
+            "priceFloat": 26000,
+            "priceInMin": 26000
+          },
+          "comment": "note: chọn option 3 và option 2",
+          "modifierGroups": [
+            {
+              "modifierGroupID": "VNMOG2026082804182653459",
+              "modifierGroupName": "test",
+              "modifiers": [
+                {
+                  "modifierID": "VNMOD20260828041826012227",
+                  "modifierName": "option3",
+                  "priceDisplay": "4.000",
+                  "quantity": 1,
+                  "revampedPriceDisplay": "4.000",
+                  "editedStatus": 0
+                },
+                {
+                  "modifierID": "VNMOD20260828041827012268",
+                  "modifierName": "option2",
+                  "priceDisplay": "3.000",
+                  "quantity": 1,
+                  "revampedPriceDisplay": "3.000",
+                  "editedStatus": 0
+                }
+              ]
+            }
+          ],
+          "discountInfo": null,
+          "itemID": "VNITE2026030916085724916",
+          "editedStatus": 0,
+          "weight": null,
+          "itemCode": "",
+          "specialItemType": "",
+          "soldByWeight": false,
+          "outOfStockInstruction": null,
+          "parentID": "",
+          "parentName": "",
+          "skuID": "",
+          "isAddedAsReplacement": false,
+          "image": "https://huawei-food-cms.grab.com/item/VNITE2026030916085724916/photos/menueditor_item_1d8f648bb8904e0cad606830350cfc2e_1773072468052831832.jpg",
+          "itemKey": "VNITE2026030916085724916-ac52cd7c6e2f490698d56855c274b2a6",
+          "barcode": "",
+          "originalItem": null,
+          "outOfStockInstructionV2": {
+            "title": "REMOVE",
+            "replacementItems": null
+          },
+          "originalFare": null,
+          "isUneditable": false,
+          "itemTags": null,
+          "memberPriceInfo": null
+        },
+        {
+          "name": "Sting Đỏ",
+          "quantity": 1,
+          "fare": {
+            "currencySymbol": "₫",
+            "priceDisplay": "24.000",
+            "originalItemPriceDisplay": "19.000",
+            "beforeAdjustedPriceDisplay": "19.000",
+            "priceFloat": 24000,
+            "priceInMin": 24000
+          },
+          "comment": "note: chọn option 1 là option 2",
+          "modifierGroups": [
+            {
+              "modifierGroupID": "VNMOG2026082804182653459",
+              "modifierGroupName": "test",
+              "modifiers": [
+                {
+                  "modifierID": "VNMOD20260828041827012268",
+                  "modifierName": "option2",
+                  "priceDisplay": "3.000",
+                  "quantity": 1,
+                  "revampedPriceDisplay": "3.000",
+                  "editedStatus": 0
+                },
+                {
+                  "modifierID": "VNMOD20260828041827026960",
+                  "modifierName": "option1",
+                  "priceDisplay": "2.000",
+                  "quantity": 1,
+                  "revampedPriceDisplay": "2.000",
+                  "editedStatus": 0
+                }
+              ]
+            }
+          ],
+          "discountInfo": null,
+          "itemID": "VNITE2026030916085724916",
+          "editedStatus": 0,
+          "weight": null,
+          "itemCode": "",
+          "specialItemType": "",
+          "soldByWeight": false,
+          "outOfStockInstruction": null,
+          "parentID": "",
+          "parentName": "",
+          "skuID": "",
+          "isAddedAsReplacement": false,
+          "image": "https://huawei-food-cms.grab.com/item/VNITE2026030916085724916/photos/menueditor_item_1d8f648bb8904e0cad606830350cfc2e_1773072468052831832.jpg",
+          "itemKey": "VNITE2026030916085724916-37aaa545739a44b79ba2f749774e6ee3",
+          "barcode": "",
+          "originalItem": null,
+          "outOfStockInstructionV2": {
+            "title": "REMOVE",
+            "replacementItems": null
+          },
+          "originalFare": null,
+          "isUneditable": false,
+          "itemTags": null,
+          "memberPriceInfo": null
+        },
+        {
+          "name": "Kem Nho Matcha",
+          "quantity": 1,
+          "fare": {
+            "currencySymbol": "₫",
+            "priceDisplay": "30.000",
+            "originalItemPriceDisplay": "30.000",
+            "beforeAdjustedPriceDisplay": "30.000",
+            "priceFloat": 30000,
+            "priceInMin": 30000
+          },
+          "comment": "",
+          "modifierGroups": [],
+          "discountInfo": null,
+          "itemID": "VNITE2026060506333532908",
+          "editedStatus": 0,
+          "weight": null,
+          "itemCode": "",
+          "specialItemType": "",
+          "soldByWeight": false,
+          "outOfStockInstruction": null,
+          "parentID": "",
+          "parentName": "",
+          "skuID": "",
+          "isAddedAsReplacement": false,
+          "image": "https://huawei-food-cms.grab.com/item/VNITE2026060506333532908/photos/menueditor_item_5aa441618a4d428390e3716e4ffac1c8_1780641162616456144.jpg",
+          "itemKey": "VNITE2026060506333532908-d990649ef5eb41dfa1d6cf0dbd0e677e",
+          "barcode": "",
+          "originalItem": null,
+          "outOfStockInstructionV2": {
+            "title": "REMOVE",
+            "replacementItems": null
+          },
+          "originalFare": null,
+          "isUneditable": false,
+          "itemTags": null,
+          "memberPriceInfo": null
+        }
+      ],
+      "merchantItems": null
+    },
+    "fare": {
+      "currencySymbol": "₫",
+      "totalInCent": 0,
+      "adjustmentByDriverInCent": 0,
+      "totalDisplay": "121.000",
+      "subTotalDisplay": "121.000",
+      "taxDisplay": "0",
+      "adjustmentByDriverDisplay": "",
+      "promotionDisplay": "5.000",
+      "deliveryFeeDisplay": "13.000",
+      "passengerTotalDisplay": "129.000",
+      "totalDiscountAmountDisplay": "",
+      "reducedPriceDisplay": "133.000",
+      "revampedSubtotalDisplay": "121.000",
+      "cancelledDisplay": "0",
+      "taxRate": "0.0000",
+      "merchantChargeDisplay": "",
+      "isIncludeMerchantChargeTax": false,
+      "subtotalIncludeMerchantCharge": "121.000",
+      "chargeFeeDescription": {
+        "en": "Restaurant packaging charge",
+        "id": "Biaya kemasan resto",
+        "ms": "Caj pembungkusan dari restoran",
+        "th": "ค่าบรรจุภัณฑ",
+        "vi": "Phí đồ gói mang về",
+        "zh": "商家包装费",
+        "zh-Hant-TW": "餐廳包裝費用"
+      },
+      "smallOrderFeeDisplay": "0",
+      "serviceChargeFeeDisplay": "",
+      "serviceChargeFeeDescription": {
+        "en": "Service charge",
+        "id": "Biaya layanan",
+        "km": "ការគិតថ្លៃលើសេវាកម្ម",
+        "ms": "Caj Perkhidmatan",
+        "my": "ဝန်ဆောင်စရိတ်",
+        "ru": "Сервисный сбор",
+        "th": "ค่าบริการ",
+        "vi": "Phí dịch vụ",
+        "zh": "服务费",
+        "zh-hant-tw": "服務費用"
+      },
+      "daxPayMexFareDisplay": "0",
+      "mexCommissionDisplay": "0",
+      "onBehalfWithholdTaxDisplay": "0",
+      "mexVatAmountDisplay": "0",
+      "mexPitAmountDisplay": "0",
+      "originalPriceInMin": 121000,
+      "bcrsDepositDisplay": "",
+      "bcrsDepositInCent": 0,
+      "bcrsDepositItemCount": 0
+    },
+    "times": {
+      "createdAt": "2026-08-28T04:24:32Z",
+      "deliveredAt": "2026-08-28T04:34:32Z",
+      "completedAt": "2026-08-28T04:24:41Z",
+      "expiredAt": "2026-08-28T04:29:40Z",
+      "acceptedAt": null,
+      "cancelledAt": null,
+      "readyAt": null,
+      "displayedAt": null,
+      "driverArriveRestoAt": null,
+      "preparationCompletedAt": null
+    },
+    "state": "ALLOCATING",
+    "merchant": {
+      "ID": "5-C7XUNYEVEADYN2"
+    },
+    "deliveryTaskpoolStatus": "",
+    "preparationTaskpoolStatus": "NEW",
+    "cancelCode": 0,
+    "displayID": "GF-547",
+    "bookingCode": "A-9PW5C8LGXXKUAV",
+    "paymentMethod": "Cash",
+    "acceptedViaCall": false,
+    "acceptedViaAA": false,
+    "acknowledgedForAA": false,
+    "qsrModelType": 0,
+    "hasPromo": false,
+    "receiptAdditionalInfo": {
+      "supportFeatureFlags": {
+        "showCashToCollect": false
+      },
+      "printedCount": 0
+    },
+    "allowComplete": false,
+    "isTakeawayOrder": false,
+    "orderLevelDiscounts": null,
+    "flags": {
+      "showReceiptEaterAddress": false,
+      "showForceCompleteButton": false,
+      "hideOrderDriverInfo": false,
+      "isPrintOrderRevampReceipt": true,
+      "isGrabInitiatedSplitOrder": false,
+      "isAdsMarketingAttributed": false,
+      "isPaxNewCustomer": true,
+      "isPayOnCollect": false,
+      "merchantFeatureFlags": 2,
+      "isOPTPhase5Enabled": true,
+      "isManualAcceptMode": true,
+      "isM41Order": false,
+      "isTH5050Order": false,
+      "isCrossSell": false
+    },
+    "scheduledOrderInfo": null,
+    "isLargeOrder": false,
+    "isEditable": true,
+    "isOrderEdited": false,
+    "isOrderWithFriends": false,
+    "uneditableReason": 0,
+    "cutlery": 2,
+    "cancelBy": "",
+    "cancelRole": "",
+    "leadsGenData": {
+      "isDeliverByMex": false,
+      "isOrderValueLow": false,
+      "deliveryFee": "",
+      "timeLeftToEnableCompleteButton": 0,
+      "geAllocationStatus": 0,
+      "grabExpressDriver": null,
+      "paxDistanceToMex": 1326
+    },
+    "isBusyModeOrder": false,
+    "busyModeOrderPickupTime": "2026-08-28T05:24:32.472099026Z",
+    "busyModeApproach": 0,
+    "payMerchant": false,
+    "cancelledMsg": "",
+    "orderFlags": 4035229664170477600,
+    "orderStatsFlags": 33,
+    "receiptFlags": 0,
+    "dineInInfo": null,
+    "chatroomInfo": {
+      "roomID": "",
+      "status": 0
+    },
+    "membershipID": "",
+    "mcorInfo": null,
+    "mexReimbursementInfo": null,
+    "displayHighlights": {
+      "highlightItemCount": false,
+      "missingItemIDs": null,
+      "highMIWIRisk": true,
+      "highMIWIRiskItemIDs": []
+    },
+    "giftInfo": null,
+    "orderBookings": null,
+    "incidents": {
+      "hasError": false,
+      "data": []
+    },
+    "voucherInfo": null,
+    "stampInfo": {
+      "userConsentMsg": ""
+    },
+    "mexOPT": {
+      "submittedOPTFromMex": 300,
+      "sourceOPT": 0,
+      "isPreparationTaskDelayed": false,
+      "isReadyButtonAbused": false,
+      "actualOPT": null,
+      "estimatedOPTDoneAt": "2026-08-28T04:29:40.472099026Z",
+      "remainEditableOPTInSec": 0,
+      "configuration": {
+        "timeAdjustment": {
+          "minimumOPT": 1,
+          "maximumOPT": 60,
+          "maximumAdditionOPT": 20,
+          "maximumSubtractionOPT": 59
+        },
+        "step": 1,
+        "timerDuration": 2,
+        "editOPTWindowInSec": 60,
+        "editableOPTWindowInSec": 180
+      }
+    },
+    "replacementInfo": null,
+    "isEditableByPax": false,
+    "preparationTaskID": "",
+    "orderChangeLog": null,
+    "isEditableByPaxV2": false,
+    "reservationDeposit": null,
+    "orderReadyPhotoDetail": null,
+    "th5050OrderDetail": null,
+    "upcomingData": null,
+    "recovery": {
+      "isRecoveryAllowed": false,
+      "settings": {
+        "maxRefundAmountInMin": 121000,
+        "refundReceivingAccount": ""
+      }
+    }
+  }
+}
