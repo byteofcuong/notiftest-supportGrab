@@ -1,0 +1,22 @@
+{
+  "name": "grab-order-watcher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Theo doi don moi tren Grab Merchant va day sang API ccmany",
+  "main": "out/main/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build:ts": "tsc",
+    "dev": "npm run build:ts && node scripts/dev.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "fixtures": "node scripts/extract-fixtures.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "electron": "^44.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}

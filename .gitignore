@@ -1,0 +1,17 @@
+# HAR chứa tên/SĐT khách và mã quán — không đẩy lên remote
+*.har
+har/
+
+out/
+release/
+node_modules/
+dist/
+.env
+*.log
+
+# Phiên đăng nhập Grab do Electron giữ (nằm ở app.getPath("userData"),
+# mặc định ngoài repo — liệt kê ở đây phòng khi đổi sang thư mục cục bộ)
+user-data/
+
+# Cache chống trùng, JSON thô của đơn, payload chạy khô
+data/
