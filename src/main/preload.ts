@@ -19,7 +19,18 @@ export interface AppStatus {
   pageLoaded: boolean;
   userAgent: string;
   partitionPath: string;
+  lastProbe: ProbeResult | null;
   warnings: string[];
+}
+
+/** Ket qua goi thu API Grab — cach duy nhat dang tin de biet phien con song. */
+export interface ProbeResult {
+  at: string;
+  ok: boolean;
+  quanDangMo?: boolean;
+  soDon?: number;
+  matPhien?: boolean;
+  error?: string;
 }
 
 contextBridge.exposeInMainWorld('api', {
@@ -27,4 +38,5 @@ contextBridge.exposeInMainWorld('api', {
   showGrabWindow: (): Promise<void> => ipcRenderer.invoke('grab:show'),
   hideGrabWindow: (): Promise<void> => ipcRenderer.invoke('grab:hide'),
   reloadGrab: (): Promise<void> => ipcRenderer.invoke('grab:reload'),
+  probeGrab: (): Promise<ProbeResult | null> => ipcRenderer.invoke('grab:probe'),
 });

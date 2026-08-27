@@ -225,11 +225,11 @@ khỏi Chrome/Edge mà người dùng bình thường. Hệ quả:
 - Nhân viên xoá cookie, đăng nhập tài khoản khác → công cụ không sao
 - Ngược lại, **không được tự tay đóng cửa sổ Chromium của công cụ** — đóng là dừng luôn
 
-> ⚠️ **Cần kiểm chứng trước khi triển khai**: Grab có cho phép **nhiều phiên đăng nhập cùng
-> lúc** trên một tài khoản không? Nếu Grab đá phiên cũ khi có phiên mới, thì việc công cụ đăng
-> nhập có thể làm nhân viên bị đăng xuất khỏi web/app của họ. Cách thử: đăng nhập vào Chromium
-> của công cụ, rồi kiểm tra xem phiên đang mở trên máy/điện thoại khác có còn dùng được không.
-> Đây là rủi ro vận hành lớn nhất còn lại — xem §11.
+> ✅ **Đã kiểm chứng 2026-08-28**: Grab **cho phép nhiều phiên đăng nhập cùng lúc**.
+> Đăng nhập vào cửa sổ của công cụ **không** làm phiên trên điện thoại hay Edge bị đá ra.
+> Rủi ro vận hành lớn nhất của phương án này coi như đã gỡ.
+>
+> Phiên cũng **sống qua lần khởi động lại app** — đăng nhập một lần, mở lại vào thẳng.
 
 ---
 
@@ -571,7 +571,7 @@ trong toàn bộ mã nguồn. Nếu sau này ai thêm vào, coi như đổi bả
 
 | Rủi ro | Mức | Xử lý |
 |---|---|---|
-| **Grab chỉ cho một phiên đăng nhập** → công cụ đá nhân viên ra | **Cao** | Phải thử trước bước 5 ở §12. Nếu đúng thì cả phương án này phải bàn lại |
+| ~~Grab chỉ cho một phiên đăng nhập~~ | — | **Đã gỡ 2026-08-28**: nhiều phiên cùng lúc hoạt động bình thường — §3.5 |
 | Grab đổi API | Trung bình | Lưu JSON thô mọi đơn → có cái mà sửa mapper. Mapper ném lỗi rõ ràng thay vì gửi số sai |
 | `total` là tiền trước chiết khấu sàn | Trung bình | Đã chốt chấp nhận (§6.1 doc kia). Có sao kê thật thì đối chiếu lại sau |
 | Đơn hết hạn/huỷ vẫn đã gửi | Thấp | Chấp nhận — đó là cái giá của việc báo sớm |

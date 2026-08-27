@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { loadConfig, loadEnvFile, loadStores } from '../core/config.js';
 import { Logger } from '../core/log.js';
 import { GrabWindow } from './grab-window.js';
+import { GrabClient, SessionExpiredError } from '../grab/client.js';
 import type { AppConfig } from '../core/config.js';
 import type { StoreConfig } from '../core/types.js';
 
@@ -30,6 +31,42 @@ let stores: StoreConfig[];
 let logger: Logger;
 let controlWindow: BrowserWindow | null = null;
 let grabWindow: GrabWindow | null = null;
+let grabClient: GrabClient | null = null;
+
+/** Ket qua lan kiem tra ket noi gan nhat, de hien len giao dien. */
+let lastProbe: {
+  at: string;
+  ok: boolean;
+  quanDangMo?: boolean;
+  soDon?: number;
+  matPhien?: boolean;
+  error?: string;
+} | null = null;
+
+async function probeGrab(): Promise<void> {
+  const store = stores[0];
+  if (!store || !grabClient) return;
+
+  const at = new Date().toISOString();
+  try {
+    const [status, list] = await Promise.all([
+      grabClient.openStatus(store.grabMerchantID),
+      grabClient.listPreparing(store.grabMerchantID),
+    ]);
+    lastProbe = {
+      at,
+      ok: true,
+      quanDangMo: status.isOpen === true,
+      soDon: list.orders?.length ?? 0,
+    };
+    logger.info('Kiem tra Grab OK', lastProbe);
+  } catch (err) {
+    const matPhien = err instanceof SessionExpiredError;
+    lastProbe = { at, ok: false, matPhien, error: (err as Error).message };
+    if (matPhien) logger.warn('MAT PHIEN - can dang nhap lai');
+    else logger.error('Kiem tra Grab that bai', err);
+  }
+}
 
 function createControlWindow(): void {
   controlWindow = new BrowserWindow({
@@ -63,6 +100,7 @@ function registerIpc(): void {
       pageLoaded: grabWindow?.pageLoaded() ?? false,
       userAgent: app.userAgentFallback,
       partitionPath: GrabWindow.partitionPath(),
+      lastProbe,
       warnings: config.warnings,
     };
   });
@@ -75,6 +113,10 @@ function registerIpc(): void {
   });
   ipcMain.handle('grab:reload', async () => {
     await grabWindow?.reload();
+  });
+  ipcMain.handle('grab:probe', async () => {
+    await probeGrab();
+    return lastProbe;
   });
 }
 
@@ -111,6 +153,12 @@ app.whenReady().then(async () => {
       url: grabWindow.currentUrl(),
       trangDaTai: grabWindow.pageLoaded(),
     });
+
+    grabClient = new GrabClient({ getRunner: () => grabWindow?.runner() ?? null });
+
+    // Kiem tra ngay luc khoi dong: day la cach DUY NHAT dang tin de biet phien
+    // con song hay khong (doc URL khong dung - xem grab-window.ts).
+    await probeGrab();
   }
 
   app.on('activate', () => {

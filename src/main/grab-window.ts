@@ -110,6 +110,15 @@ export class GrabWindow {
     this.window?.hide();
   }
 
+  /**
+   * webContents de GrabClient chay fetch trong do. null khi cua so chua san
+   * sang hoac da bi huy — client se bao loi ro rang thay vi sap.
+   */
+  runner(): Electron.WebContents | null {
+    if (!this.window || this.window.isDestroyed()) return null;
+    return this.window.webContents;
+  }
+
   /** URL hien tai — dung de doan xem con phien hay da bi da ve trang dang nhap. */
   currentUrl(): string | null {
     if (!this.window || this.window.isDestroyed()) return null;
@@ -119,14 +128,17 @@ export class GrabWindow {
   /**
    * Trang da tai ve tren mien merchant.grab.com hay chua.
    *
-   * CO Y KHONG goi day la "da dang nhap". Da thu voi phien hoan toan trong:
-   * URL van dung nguyen o /order/{mexID}/preparing, khong he chuyen huong —
-   * Grab la SPA nen no ve man hinh dang nhap ma khong doi URL. Suy ra trang
-   * thai dang nhap tu URL la SAI, va sai theo huong nguy hiem nhat: bao xanh
-   * trong khi thuc te khong co phien.
+   * CO Y KHONG goi day la "da dang nhap".
    *
-   * Cach duy nhat dang tin la goi that mot endpoint va xem co 401 khong —
-   * lam o Task 7.
+   * Khi mat phien, Grab CO chuyen huong sang trang dang nhap — nhung khong
+   * chuyen ngay. Trang tai xong truoc, roi JS moi kiem tra phien va chuyen
+   * huong sau do. Doc URL ngay sau loadURL() thi van thay /order/{mexID}/
+   * preparing va tuong la con phien: bao xanh trong khi thuc te da mat.
+   * (Da dam phai dung loi nay o lan chay thu dau tien cua Task 6.)
+   *
+   * Suy ra trang thai dang nhap tu URL nghia la dua vao mot cuoc dua thoi
+   * gian. Cach dang tin duy nhat la goi that mot endpoint va xem co 401
+   * khong — GrabClient lam viec do.
    */
   pageLoaded(): boolean {
     const url = this.currentUrl();

@@ -20,15 +20,27 @@ async function refresh() {
     return;
   }
 
-  // KHONG suy ra "da dang nhap" tu URL: Grab la SPA, no ve man hinh dang nhap
-  // ma khong doi URL. Task 7 se kiem bang mot loi goi API that (401 hay khong).
-  $('den').className = `den ${status.pageLoaded ? 'vang' : 'do'}`;
-  set(
-    'trangthai',
-    status.pageLoaded
-      ? 'Trang Grab đã tải — chưa kiểm chứng được phiên (Task 7)'
-      : 'Chưa tải được trang Grab',
-  );
+  // Trang thai phien lay tu KET QUA GOI API THAT, khong suy tu URL: Grab tai
+  // trang xong roi moi chuyen huong sang trang dang nhap, nen co mot khoang
+  // URL van tro nhu binh thuong du da mat phien.
+  const probe = status.lastProbe;
+  if (!probe) {
+    $('den').className = 'den vang';
+    set('trangthai', 'chưa kiểm tra kết nối');
+  } else if (probe.ok) {
+    $('den').className = 'den xanh';
+    set(
+      'trangthai',
+      `Phiên Grab sống · quán ${probe.quanDangMo ? 'đang mở' : 'đóng cửa'} · ${probe.soDon} đơn đang chuẩn bị`,
+    );
+  } else if (probe.matPhien) {
+    $('den').className = 'den do';
+    set('trangthai', 'MẤT PHIÊN — bấm "Mở trang Grab" để đăng nhập lại');
+  } else {
+    $('den').className = 'den do';
+    set('trangthai', `Lỗi: ${probe.error}`);
+  }
+  set('kiemtra', probe ? new Date(probe.at).toLocaleTimeString('vi-VN') : 'chưa kiểm tra');
 
   set('quan', `${status.storeName} · ${status.merchantID}`);
   set(
@@ -56,6 +68,11 @@ $('btn-mo').addEventListener('click', async () => {
   setTimeout(refresh, 1500);
 });
 $('btn-an').addEventListener('click', () => window.api.hideGrabWindow());
+$('btn-kiem').addEventListener('click', async () => {
+  set('trangthai', 'đang kiểm tra…');
+  await window.api.probeGrab();
+  refresh();
+});
 $('btn-tai').addEventListener('click', async () => {
   await window.api.reloadGrab();
   setTimeout(refresh, 2000);
