@@ -1,0 +1,6 @@
+* text=auto eol=lf
+
+# HAR va anh la nhi phan, dung dung vao
+*.har binary
+*.png binary
+*.jpg binary
