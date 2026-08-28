@@ -21,6 +21,8 @@ const ORDERS_URL = (merchantID: string) =>
 export interface GrabWindowOptions {
   merchantID: string;
   logger: Logger;
+  /** Goi khi cua so Grab an di, de dua nguoi dung ve bang dieu khien. */
+  onHidden?: () => void;
 }
 
 export class GrabWindow {
@@ -81,7 +83,7 @@ export class GrabWindow {
     window.on('close', (event) => {
       if (this.quitting) return;
       event.preventDefault();
-      window.hide();
+      this.hide();
     });
 
     window.webContents.on('did-finish-load', () => {
@@ -99,6 +101,23 @@ export class GrabWindow {
     return window;
   }
 
+  /**
+   * Mo lai cua so neu no da bi huy vi bat cu ly do gi.
+   *
+   * Khong co luoi nay thi mot lan cua so bi huy la cong cu chet han: moi loi
+   * goi API bao "chua san sang" va khong co gi mo lai no. Da tung xay ra
+   * that: mot nut chen vao trang Grab goi window.close(), va event
+   * .preventDefault() trong su kien 'close' KHONG chan duoc — cua so van bi
+   * huy. Nut do da bo, nhung luoi nay thi giu.
+   */
+  async ensureOpen(): Promise<boolean> {
+    if (this.runner()) return false;
+    this.options.logger.warn('Cua so Grab da bi huy - dang mo lai');
+    this.window = null;
+    await this.open();
+    return true;
+  }
+
   /** Hien cua so ra de nguoi dung dang nhap bang tay. */
   async show(): Promise<void> {
     const window = await this.open();
@@ -108,6 +127,7 @@ export class GrabWindow {
 
   hide(): void {
     this.window?.hide();
+    this.options.onHidden?.();
   }
 
   /**
@@ -117,6 +137,27 @@ export class GrabWindow {
   runner(): Electron.WebContents | null {
     if (!this.window || this.window.isDestroyed()) return null;
     return this.window.webContents;
+  }
+
+
+  /**
+   * Ep Chromium ghi cookie xuong dia ngay.
+   *
+   * Chromium giu cookie trong bo nho va chi ghi xuong theo chu ky hoac khi
+   * thoat sach. Neu tien trinh bi giet cung — mat dien, Windows Update ep tat,
+   * ai do End Task — thi phan chua kip ghi se mat, va lan chay sau nguoi dung
+   * bi da ra trang dang nhap ma khong hieu vi sao.
+   *
+   * (Da dam phai trong lua chay thu Task 8: giet cung vai lan lien tiep thi
+   * phien Grab bien mat.)
+   */
+  async luuPhien(): Promise<void> {
+    try {
+      await session.fromPartition(PARTITION).flushStorageData();
+      this.options.logger.debug('Da ghi phien xuong dia');
+    } catch (err) {
+      this.options.logger.warn('Khong ghi duoc phien xuong dia', err);
+    }
   }
 
   /** URL hien tai — dung de doan xem con phien hay da bi da ve trang dang nhap. */

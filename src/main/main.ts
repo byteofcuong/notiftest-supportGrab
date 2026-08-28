@@ -38,6 +38,8 @@ let grabWindow: GrabWindow | null = null;
 let grabClient: GrabClient | null = null;
 let poller: StorePoller | null = null;
 let telegram: TelegramNotifier | null = null;
+/** Chan vong lap khi before-quit chay lai sau khi da ghi phien xong. */
+let dangThoat = false;
 
 /** Ket qua lan kiem tra ket noi gan nhat, de hien len giao dien. */
 let lastProbe: {
@@ -66,6 +68,9 @@ async function probeGrab(): Promise<void> {
       soDon: list.orders?.length ?? 0,
     };
     logger.info('Kiem tra Grab OK', lastProbe);
+    // Phien vua duoc xac nhan la song thi ghi xuong dia ngay, de mot lan
+    // tat may dot ngot khong lam mat no.
+    void grabWindow?.luuPhien();
 
     // Phien vua song lai (nguoi dung vua dang nhap) thi bat poller luon,
     // khong bat nguoi dung phai bam them nut nao nua.
@@ -166,7 +171,14 @@ app.whenReady().then(async () => {
 
   const store = stores[0];
   if (store) {
-    grabWindow = new GrabWindow({ merchantID: store.grabMerchantID, logger });
+    grabWindow = new GrabWindow({
+      merchantID: store.grabMerchantID,
+      logger,
+      onHidden: () => {
+        controlWindow?.show();
+        controlWindow?.focus();
+      },
+    });
     // Mo san (van an) de phien duoc khoi phuc va trang bat dau song.
     await grabWindow.open();
     logger.info('Cua so Grab da san sang', {
@@ -199,6 +211,18 @@ app.whenReady().then(async () => {
     // con song hay khong (doc URL khong dung - xem grab-window.ts).
     await probeGrab();
 
+    // Ghi phien xuong dia dinh ky: Grab xoay cookie trong luc chay, neu chi ghi
+    // luc khoi dong va luc thoat thi mot lan giet cung o giua van mat phien.
+    setInterval(() => void grabWindow?.luuPhien(), 5 * 60_000);
+
+    // Luoi an toan: cua so Grab bi huy vi bat cu ly do gi thi mo lai. Thieu
+    // no thi mot lan cua so mat la cong cu chet han ma khong tu hoi phuc.
+    setInterval(() => {
+      void grabWindow?.ensureOpen().then((daMoLai) => {
+        if (daMoLai) void probeGrab();
+      });
+    }, 30_000);
+
     if (lastProbe?.ok) {
       poller.start();
       void telegram.sendAlert(
@@ -216,8 +240,19 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
   poller?.stop();
+  if (grabWindow && !dangThoat) {
+    // Hoan thoat mot nhip de kip ghi cookie xuong dia — thoat ngay thi
+    // phan chua ghi se mat va lan sau phai dang nhap lai.
+    event.preventDefault();
+    dangThoat = true;
+    void grabWindow.luuPhien().finally(() => {
+      grabWindow?.allowClose();
+      app.quit();
+    });
+    return;
+  }
   grabWindow?.allowClose();
 });
 
