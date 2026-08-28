@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { GrabApiError, GrabClient, SessionExpiredError } from '../src/grab/client.js';
+import type { ScriptRunner } from '../src/grab/client.js';
 
 const MEX = '5-C7XUNYEVEADYN2';
 
@@ -195,5 +196,47 @@ describe('timeout', () => {
       timeoutMs: 50,
     });
     await expect(client.openStatus(MEX)).rejects.toThrowError(/khong thay tra loi/);
+  });
+});
+
+/**
+ * Nhom nay ghim mot phan biet da tra gia bang mot lan chay thu that: khi Grab
+ * da nguoi dung ve trang dang nhap, cua so nam o weblogin.grab.com, fetch sang
+ * api.grab.com bi CORS chan va bao "Failed to fetch" — y het luc rot mang.
+ * Khong phan biet duoc thi app bao "loi mang" va cu the im lang ca buoi.
+ */
+describe('phan biet mat phien voi loi mang', () => {
+  const fetchHong: ScriptRunner = {
+    executeJavaScript: async () => ({ status: 0, ok: false, error: 'Failed to fetch' }),
+  };
+
+  it('con o merchant.grab.com thi loi fetch la LOI MANG', async () => {
+    const client = new GrabClient({
+      getRunner: () => fetchHong,
+      getUrl: () => 'https://merchant.grab.com/order/5-ABC/preparing',
+    });
+    await expect(client.openStatus('5-ABC')).rejects.toBeInstanceOf(GrabApiError);
+  });
+
+  it('da o trang dang nhap thi loi fetch la MAT PHIEN', async () => {
+    const client = new GrabClient({
+      getRunner: () => fetchHong,
+      getUrl: () => 'https://weblogin.grab.com/merchant/login?service_id=MEXUSERS',
+    });
+    await expect(client.openStatus('5-ABC')).rejects.toBeInstanceOf(SessionExpiredError);
+  });
+
+  it('khong biet URL thi mac dinh la loi mang, khong ket toi mat phien oan', async () => {
+    const client = new GrabClient({ getRunner: () => fetchHong });
+    await expect(client.openStatus('5-ABC')).rejects.toBeInstanceOf(GrabApiError);
+  });
+
+  // 401 van la 401 du dang o dau: ma HTTP that thi chac chan hon suy doan.
+  it('401 van la mat phien ke ca khi URL binh thuong', async () => {
+    const client = new GrabClient({
+      getRunner: () => ({ executeJavaScript: async () => ({ status: 401, ok: false }) }),
+      getUrl: () => 'https://merchant.grab.com/order/5-ABC/preparing',
+    });
+    await expect(client.openStatus('5-ABC')).rejects.toBeInstanceOf(SessionExpiredError);
   });
 });

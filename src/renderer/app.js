@@ -1,7 +1,9 @@
 // Giao dien dieu khien. JavaScript thuan, khong bien dich — day la mot trang
 // nho, them mot buoc build cho no chi lam cham vong lap sua-thu.
 //
-// Giao dien day du (bang nhieu quan) lam o Task 9.
+// Nguoi doc trang nay la nhan vien quan, khong phai lap trinh vien: moi dong
+// phai tra loi duoc mot cau hoi cu the, va cau quan trong nhat — "no dang chay
+// dung khong" — phai tra loi duoc chi bang mau cua cham trang thai.
 
 const $ = (id) => document.getElementById(id);
 
@@ -42,7 +44,11 @@ async function refresh() {
       : 'chưa có',
   );
 
+  $('btn-dung').textContent =
+    poller?.state === 'dung' ? 'Tiếp tục theo dõi' : 'Tạm dừng theo dõi';
+
   set('kiemtra', status.lastProbe ? gio(status.lastProbe.at) : 'chưa kiểm tra');
+  set('benbi', motaBenBi(status.resilience));
   set('url', status.grabUrl ?? '—');
   set('ua', status.userAgent);
   set('phien', status.partitionPath);
@@ -109,13 +115,27 @@ $('btn-tai').addEventListener('click', async () => {
   await window.api.reloadGrab();
   setTimeout(refresh, 2000);
 });
+/**
+ * Ba con so cua cac lop bao ve. Binh thuong ca ba deu bang khong — khi khac
+ * khong thi tuc la da co su co tu phuc hoi ma khong ai ngoi day de nhin thay.
+ */
+function motaBenBi(r) {
+  if (!r) return '—';
+  const phan = [];
+  phan.push(r.soLanMoLaiCuaSo === 0 ? 'cửa sổ chưa phải mở lại lần nào' : `mở lại cửa sổ ${r.soLanMoLaiCuaSo} lần`);
+  if (r.soLanCanThiep > 0) phan.push(`watchdog can thiệp ${r.soLanCanThiep} lần`);
+  if (r.lanTaiLaiCuoi) phan.push(`tải lại trang lúc ${gio(r.lanTaiLaiCuoi)}`);
+  return phan.join(' · ');
+}
+
+$('btn-nhatky').addEventListener('click', () => window.api.openLog());
 $('btn-kiem').addEventListener('click', async () => {
   set('trangthai', 'đang kiểm tra…');
   await window.api.probeGrab();
   refresh();
 });
 $('btn-dung').addEventListener('click', async () => {
-  await window.api.stopPoller();
+  await window.api.togglePoller();
   refresh();
 });
 

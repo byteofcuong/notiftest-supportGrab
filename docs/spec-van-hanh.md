@@ -82,52 +82,137 @@ Hệ quả rất thực tế:
 Đây là lý do bản web dễ nuôi hơn bản Android nhiều: giao diện thì Grab đổi liên tục, còn API
 thì hiếm khi đổi, và khi đổi thì thường thêm phiên bản mới (`v3` → `v4`) chứ không phá cái cũ.
 
-### 2.2 Sơ đồ tổng thể
+### 2.2 Sơ đồ tổng quan
+
+Công cụ chạy **ba đồng hồ độc lập nhau**. Đây là chỗ hay hiểu nhầm nhất: vòng lặp lấy đơn
+không tự sửa được cửa sổ hỏng, nên phải có đồng hồ riêng canh việc đó.
 
 ```
-        ┌──────────────────────────────────────────┐
-        │   ☁   GRAB  ·  api.grab.com              │   đơn thật nằm ở đây
-        └─────────────────────▲────────────────────┘
-                              │
-               ①  hỏi "có đơn mới không?"  — mỗi 5 giây
-               ②  Grab trả về JSON của đơn
-                              │
-        ┌─────────────────────┴────────────────────┐
-        │   🌐   Trình duyệt                        │   chỉ để giữ đăng nhập
-        └─────────────────────▲────────────────────┘
-                              │
-        ┌─────────────────────┴────────────────────┐
-        │   ⚙   Công cụ  ·  PC của quán            │   lọc ra đơn chưa từng gặp
-        │                                          │   đổi sang định dạng ccmany
-        └──────┬────────────────────────┬──────────┘   nhớ đơn đã gửi
-               │                        ┊
-               │ ③ gửi đơn mới          ┊ cảnh báo khi hỏng
-               ▼                        ┊
-     ┌────────────────────┐             ┊
-     │  🎯  API ccmany    │        📢  Telegram
-     └────────────────────┘
+   ┌──────────────────────────────────────────────────────────────────────────┐
+   │  ⚙  TIẾN TRÌNH NODE — mọi đồng hồ đều nằm ở đây, KHÔNG nằm trong trang   │
+   │                                                                          │
+   │   ⏱  5s / 30s   VÒNG LẶP LẤY ĐƠN      → luồng chính, xem bên dưới        │
+   │   ⏱  30s        CANH CỬA SỔ           → cửa sổ Grab chết thì mở lại      │
+   │   ⏱  5 phút     GHI PHIÊN XUỐNG ĐĨA   → mất điện không mất đăng nhập     │
+   └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-Nhân viên mở ccmany là thấy đơn, khoảng **1–6 giây** sau khi khách đặt.
+Vì sao hẹn giờ phải ở Node: Chromium bóp cổ `setTimeout` của tab chạy nền xuống còn ~1
+lần/phút. Để vòng lặp trong trang thì cứ thu nhỏ cửa sổ là công cụ chết lâm sàng, không báo lỗi.
 
-Chi tiết từng bước — lấy gì, lọc thế nào, hỏng thì làm sao — nằm ở §4.
+### Luồng chính, kèm mọi nhánh hỏng
+
+```
+  ⏱ NHỊP POLL ─── 5s khi quán mở · 30s khi quán đóng hoặc mất phiên
+        │
+        ▼
+  ① GET open-status ──────────────── hỏi lại tối đa 60s/lần, không mỗi nhịp
+        │                                   │
+        │                                   └─ 401/403 ─► ⚠ MẤT PHIÊN
+        ▼                                                  báo Telegram MỘT lần
+  ② GET orders-pagination (PreparingV2)                    giãn nhịp 30s
+        │                                                  chờ người đăng nhập lại
+        ├─ 401/403 ──────────────────────────────────────► (như trên)
+        ├─ lỗi mạng / 5xx / timeout 20s ─► ghi log, giữ nguyên nhịp, thử lại nhịp sau
+        │
+        ▼
+  ┌─ với TỪNG đơn trong danh sách ────────────────────────────────────────────┐
+  │                                                                           │
+  │   orderID đã có trong cache?  ──── có ──► bỏ qua (log mức debug)          │
+  │        │ chưa                                                             │
+  │        ▼                                                                  │
+  │   khởi động lạnh VÀ createdAt cũ hơn 15 phút?  ── đúng ──► bỏ qua (log)   │
+  │        │ không                                                            │
+  │        ▼                                                                  │
+  │   ③ GET orders/{orderID}                                                  │
+  │        ├─ lỗi ──► đếm lần thử ─┬─ < 5 lần ─► thử lại ở nhịp sau           │
+  │        │                       └─ ≥ 5 lần ─► BỎ CUỘC, báo Telegram 1 lần  │
+  │        ▼                                                                  │
+  │   lưu data/raw/{orderID}.json                                             │
+  │        └─ ghi hỏng ──► cảnh báo, VẪN đi tiếp (mất tài liệu < mất đơn)     │
+  │        ▼                                                                  │
+  │   MAPPER: Grab JSON → payload ccmany                                      │
+  │        ├─ thiếu orderID / giá sai định dạng ──► ném lỗi, xử như ③         │
+  │        └─ số tiền lệch nhau ──► CẢNH BÁO nhưng vẫn gửi + Telegram         │
+  │        ▼                                                                  │
+  │   ④ POST ccmany · timeout 15s                                             │
+  │        ├─ 2xx ─────────────────────────► thành công                       │
+  │        ├─ 4xx (trừ 408/429) ──► DỪNG NGAY, không thử lại — lỗi phía mình  │
+  │        ├─ 5xx / 408 / 429 / mạng ──► thử lại 3 lần, giãn 1,5s → 3s        │
+  │        └─ hỏng cả 3 lần ──► KHÔNG ghi cache ──► nhịp sau thử lại          │
+  │        ▼                                                                  │
+  │   ★ GHI CACHE ─── CHỈ ở đây, chỉ khi POST đã thành công                   │
+  │        ▼                                                                  │
+  │   Telegram: mã đơn · tiền · danh sách món                                 │
+  └───────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+  ngủ tới nhịp sau  (setTimeout nối tiếp, KHÔNG setInterval —
+                     một nhịp chậm không được chồng lên nhịp sau)
+```
+
+**Ba chỗ in đậm trong sơ đồ là ba nguyên tắc không được phá:**
+
+| ★ | Ghi cache **sau** khi gửi thành công | Ghi trước mà POST hỏng thì đơn đó vĩnh viễn không bao giờ được gửi lại |
+| ⚠ | Mất phiên báo **một lần** | Không thì cứ 5 giây một tin Telegram cho tới khi có người xử lý |
+| ⏱ | Hẹn giờ ở **Node** | Trong trang thì bị Chromium bóp cổ khi cửa sổ ẩn |
+
+### Khi hỏng thì sao — bảng đối chiếu
+
+| Hỏng ở đâu | Biểu hiện | Xử lý | Cần người? |
+|---|---|---|---|
+| Mất mạng | `listPreparing` lỗi | Ghi log, thử lại mỗi nhịp | Không |
+| ccmany chết | POST 5xx / timeout | Thử 3 lần, không ghi cache, nhịp sau thử lại | Không |
+| ccmany từ chối payload | POST 4xx | Dừng ngay; sau 5 nhịp thì bỏ cuộc + Telegram | **Có** — sửa mapper |
+| Grab đổi API | Mapper ném lỗi | Bỏ qua đơn, giữ `data/raw/`, Telegram | **Có** — sửa mapper |
+| Số tiền lệch nhau | Mapper cảnh báo | **Vẫn gửi**, kèm Telegram để đối chiếu | Đối chiếu sau |
+| Cửa sổ Grab bị huỷ | Mọi API báo "chưa sẵn sàng" | Đồng hồ 30s mở lại — đo thật: phục hồi sau ~20s | Không |
+| Hết phiên Grab | 401/403 | Giãn nhịp 30s, Telegram, tự chạy lại khi đăng nhập xong | **Có** — đăng nhập |
+| Mất file cache | Khởi động lạnh | Chỉ nhận đơn trong 15 phút gần nhất, không bắn lại cả tab | Không |
+| Tiến trình bị giết | — | Task Scheduler chạy lại; phiên đã ghi đĩa mỗi 5 phút | Không |
+| Đĩa đầy | Ghi `raw`/log hỏng | Nuốt lỗi, vẫn gửi đơn | **Có** — dọn đĩa |
+
+Cột cuối là cột đáng nhìn nhất: **chỉ bốn dòng cần tới con người**, và ba trong số đó đều
+được Telegram báo ra ngoài.
 
 ### 2.3 Bản mermaid
 
 ```mermaid
 flowchart TB
-    GRAB["☁ GRAB · api.grab.com<br/><i>đơn thật nằm ở đây</i>"]
-    BR["🌐 Trình duyệt<br/><i>chỉ để giữ đăng nhập</i>"]
-    APP["⚙ Công cụ · PC của quán<br/><i>lọc đơn mới · đổi định dạng · nhớ đơn đã gửi</i>"]
-    CCM["🎯 API ccmany<br/><i>nhân viên thấy đơn ở đây</i>"]
-    TG["📢 Telegram<br/><i>cảnh báo khi hỏng</i>"]
+    TIMER["⏱ Nhịp poll<br/>5s mở · 30s đóng"]
+    OPEN["① open-status<br/><i>tối đa 60s/lần</i>"]
+    LIST["② orders-pagination<br/>PreparingV2"]
+    CACHE{"đã có<br/>trong cache?"}
+    WINDOW{"khởi động lạnh<br/>và cũ hơn 15'?"}
+    DETAIL["③ orders/:orderID"]
+    RAW[("data/raw<br/>JSON thô")]
+    MAP["MAPPER<br/>Grab → ccmany"]
+    POST["④ POST ccmany<br/>timeout 15s · 3 lần"]
+    MARK["★ ghi cache<br/><i>chỉ khi đã gửi xong</i>"]
+    TG["📢 Telegram"]
+    MAT["⚠ MẤT PHIÊN<br/>báo 1 lần · chờ đăng nhập"]
+    BOCUOC["bỏ cuộc sau 5 lần<br/>+ Telegram"]
 
-    APP -- "① hỏi · mỗi 5 giây" --> BR
-    BR --> GRAB
-    GRAB -- "② JSON của đơn" --> BR
-    BR --> APP
-    APP -- "③ gửi đơn mới" --> CCM
-    APP -. "khi hỏng" .-> TG
+    TIMER --> OPEN --> LIST --> CACHE
+    OPEN -- "401/403" --> MAT
+    LIST -- "401/403" --> MAT
+    LIST -- "lỗi mạng · 5xx" --> TIMER
+    CACHE -- "có · bỏ qua" --> TIMER
+    CACHE -- "chưa" --> WINDOW
+    WINDOW -- "đúng · bỏ qua" --> TIMER
+    WINDOW -- "không" --> DETAIL
+    DETAIL --> RAW
+    DETAIL --> MAP
+    DETAIL -- "lỗi" --> BOCUOC
+    MAP -- "sai định dạng" --> BOCUOC
+    MAP -- "lệch tiền · vẫn gửi" --> TG
+    MAP --> POST
+    POST -- "4xx · dừng ngay" --> BOCUOC
+    POST -- "hỏng 3 lần · không ghi cache" --> TIMER
+    POST -- "2xx" --> MARK --> TG
+
+    classDef canhbao stroke:#c0392b,stroke-width:2px
+    class MAT,BOCUOC canhbao
 ```
 
 ---
@@ -233,53 +318,34 @@ khỏi Chrome/Edge mà người dùng bình thường. Hệ quả:
 
 ---
 
-## 4. Luồng chính — từ lúc khách đặt tới lúc đơn về ccmany
+## 4. Độ trễ — từ lúc khách đặt tới lúc đơn về ccmany
+
+Các bước đầy đủ kèm nhánh hỏng nằm ở §2.2. Mục này chỉ nhìn theo **trục thời gian**.
 
 ```
- t=0s     Khách đặt đơn trên app Grab
-            │
-            ▼
- t=0s     Đơn xuất hiện trong hệ thống Grab (times.createdAt)
-            │
-            │   (cổng web của Grab phải tới 60s sau mới biết —
-            │    mình nhanh hơn vì poll dày hơn)
-            ▼
- t≤5s    Poller gọi orders-pagination (PageType=PreparingV2)
-            │
-            ▼
-          Có orderID nào chưa nằm trong cache không?
-            │
-            ├── Không ──► ngủ tiếp 5s
-            │
-            └── Có
+ t = 0s      Khách đặt đơn · Grab ghi times.createdAt
                  │
+                 │   cổng web của Grab phải tới ~60s sau mới biết
+                 │   (đo được từ HAR: đơn tạo 10:07:28, trang thấy 10:08:20)
                  ▼
- t+~0.3s      GET /food/merchant/v3/orders/{orderID}      ← chi tiết, có giá & topping
-                 │                                          (KHÔNG gọi /orders/mark)
+ t ≤ 5s      Nhịp poll bắt được đơn trong danh sách
                  ▼
-              Lưu JSON thô ra data/raw/{orderID}.json     ← để sau còn sửa mapper
-                 │
+ t + ~0,3s   Lấy chi tiết đơn
                  ▼
-              Mapper: Grab JSON → payload ccmany
-                 │   • order_number = orderID, order_code = displayID
-                 │   • item.price = parse(priceDisplay)   (đã gồm topping)
-                 │   • total = fare.totalDisplay
-                 │   • kiểm tra total ≈ subtotal − discount − tax → lệch thì cảnh báo
+ t + ~0,5s   Biến đổi + POST lên ccmany
                  ▼
- t+~0.5s      POST lên ccmany  (x-api-key, timeout 15s, retry 3 lần backoff)
-                 │
-                 ├── Thất bại cả 3 lần ──► đưa vào hàng đợi lỗi, KHÔNG ghi cache
-                 │                          → lượt poll sau thử lại
-                 └── Thành công
-                       │
-                       ▼
-                    Ghi cache: {ccmanyStoreID}:{orderID}   ← chỉ ghi SAU khi thành công
-                       │
-                       ▼
-                    Telegram: "GF-547 · 121.000đ · 5 món"  (tuỳ chọn)
+ t + ~0,6s   Ghi cache · bắn Telegram
 
- → Tổng độ trễ điển hình: 1–6 giây kể từ lúc khách đặt.
+ → Độ trễ điển hình: 1–6 giây. Nhanh hơn chính cổng web của Grab khoảng 10 lần.
 ```
+
+Ba điều làm độ trễ xấu đi, theo thứ tự hay gặp:
+
+| Nguyên nhân | Độ trễ thành | Ghi chú |
+|---|---|---|
+| Quán vừa mở cửa | tới 30s | `open-status` chỉ hỏi lại mỗi 60s, nên nhịp 30s còn kéo dài thêm chút |
+| ccmany chậm | +1,5s mỗi lần thử lại | Tối đa 3 lần |
+| Mất phiên | vô hạn | Chờ người đăng nhập lại |
 
 ### Vì sao ghi cache sau khi POST thành công, không phải trước
 
@@ -430,15 +496,24 @@ bảng §8).
 
 ### Tự phục hồi
 
-| Hỏng ở đâu | Phát hiện bằng | Xử lý |
+Bảng đối chiếu đầy đủ ở **§2.2**. Ở đây chỉ ghi những thứ thuộc về *vòng đời tiến trình*,
+tức là các lớp bảo vệ nằm ngoài vòng lặp lấy đơn:
+
+| Lớp | Cơ chế | Trạng thái |
 |---|---|---|
-| Chromium chết / bị đóng | `page.isClosed()` hoặc lỗi CDP | Mở lại, vào lại trang, tiếp tục poll |
-| Tiến trình Node chết | Task Scheduler đặt *Restart on failure* | Chạy lại; cache trên đĩa nên không mất đơn |
-| Phiên Grab hết hạn | HTTP `401`/`403`, hoặc bị chuyển về trang login | Ngừng poll, Telegram cảnh báo, thử lại mỗi 60s cho tới khi người đăng nhập lại |
-| ccmany không phản hồi | timeout / mã `5xx` | Retry 3 lần backoff; vẫn hỏng thì giữ trong hàng đợi lỗi, thử lại lượt sau |
-| Grab đổi API (404 / JSON lạ) | Mapper ném lỗi khi thiếu trường bắt buộc | Lưu JSON thô, Telegram kèm `orderID`, bỏ qua đơn đó, **không làm chết tiến trình** |
-| Bị giới hạn tần suất (`429`) | Mã lỗi | Giãn nhịp poll gấp đôi mỗi lần, trần 60s, về lại 5s khi hết lỗi |
-| Poll đứng im (không lỗi, không kết quả) | Không có lượt poll thành công nào trong 3 phút | Telegram cảnh báo, khởi động lại trình duyệt |
+| Cửa sổ Grab bị huỷ | Đồng hồ 30s gọi `ensureOpen()`, mở lại rồi kiểm tra kết nối | ✅ đã làm, đo được ~20s phục hồi |
+| Phiên mất khi tắt đột ngột | Ghi cookie xuống đĩa mỗi 5 phút và trước khi thoát | ✅ đã làm |
+| Reload trang định kỳ | Mỗi 60 phút; hoãn lại nếu đang xử lý dở một đơn | ✅ đã làm |
+| Poll đứng im không báo lỗi | Watchdog theo **mốc poll thành công gần nhất**, không theo URL | ✅ đã làm |
+| Nhịp tim định kỳ | Telegram báo còn sống, mỗi 30 phút | ✅ đã làm |
+| Đĩa đầy dần | Xoá `data/raw/` quá hạn (6h/lần), xoay vòng log ở 2 MB × 4 file | ✅ đã làm |
+| Tự chạy cùng Windows | `app.setLoginItemSettings` — chỉ có tác dụng ở bản đóng gói | ✅ đã làm |
+| Tiến trình Node chết | Task Scheduler *Restart on failure* | ⏳ Task 12 |
+
+> ⚠️ Watchdog **phải** bám vào mốc poll thành công, **không** bám vào URL của trang.
+> Đã quan sát được: Grab tự nhảy `/profile/logout` → trang đăng nhập → quay lại trong
+> khoảng 2 giây rồi hoạt động bình thường. Watchdog nhìn URL sẽ đá nhầm đúng lúc nó
+> đang tự phục hồi.
 
 ### Chạy dài ngày — cái gì sẽ hỏng trước
 
@@ -457,7 +532,7 @@ Xếp theo thứ tự "cái nào hỏng trước":
 | 3 | **Windows Update ép khởi động lại** | ~1 tháng | Tự đăng nhập Windows + Task Scheduler *At log on* → tự chạy lại, không cần người |
 | 4 | **Đĩa đầy dần** vì `data/raw/` và file log | Vài tuần đến vài tháng | Tự xoá `raw` quá `RAW_RETENTION_DAYS`; xoay vòng log theo kích thước |
 | 5 | **Rò rỉ bộ nhớ ở tiến trình Node** | Vài tuần, nếu code sạch | Cache có trần cứng, không giữ mảng vô hạn; khởi động lại theo lịch hằng tuần cho chắc |
-| 6 | **Kết nối điều khiển Playwright rớt** | Hiếm | Bắt lỗi → mở lại trình duyệt, poll tiếp |
+| 6 | **Cửa sổ Grab bị huỷ** (ai đó End Task tiến trình con, renderer sập) | Hiếm | Đồng hồ 30s gọi `ensureOpen()` mở lại — đo thật: phục hồi sau ~20s |
 | 7 | **Lỗi không bắt được làm chết Node** | Không nên xảy ra | `unhandledRejection` / `uncaughtException` đều có handler ghi log; Task Scheduler bật *Restart on failure* |
 
 **Điểm mấu chốt: số 2 là thứ duy nhất bắt buộc cần con người.** Sáu cái còn lại đều tự xử được.
@@ -480,8 +555,34 @@ nếu đang bận thì hoãn tới nhịp sau. Cache nằm trên đĩa nên làm
 
 ### Nhịp tim
 
-Mỗi **30 phút**, gửi Telegram một dòng: số đơn đã gửi trong kỳ, trạng thái mở/đóng của quán,
-thời điểm poll thành công gần nhất. Im lặng quá lâu = có chuyện.
+Mỗi **30 phút** (`HEARTBEAT_MINUTES`, đặt `0` là tắt), gửi Telegram một dòng: quán nào, đang ở
+trạng thái gì, số đơn hôm nay, thời điểm poll thành công gần nhất. Im lặng quá lâu = có chuyện.
+
+Nhịp tim **không được chỉ nhìn poller**. Poller chưa từng chạy thì trạng thái của nó là `dừng` —
+y hệt lúc người dùng tự bấm tạm dừng. Hai chuyện khác hẳn nhau, mà chỉ một trong hai cần người
+xử lý. Nên nhịp tim đọc thêm kết quả gọi API gần nhất và tách ba câu khác nhau:
+
+| Tình huống | Nhịp tim nói |
+|---|---|
+| Đang chạy bình thường | `đang theo dõi` |
+| Mất phiên Grab | `MẤT PHIÊN GRAB - cần đăng nhập lại trên máy quán` |
+| Người dùng bấm tạm dừng | `ĐÃ TẠM DỪNG - không theo dõi đơn nào` |
+
+### Khay hệ thống
+
+Đóng cửa sổ bảng điều khiển **không** làm thoát app — nó thu xuống khay. Đóng nhầm một cái mà
+tắt cả ngày theo dõi đơn thì không ai biết cho tới lúc khách phàn nàn. Muốn tắt hẳn thì bấm
+chuột phải vào biểu tượng khay rồi chọn *Thoát*.
+
+Biểu tượng khay chính là đèn trạng thái, đổi màu theo thời gian thực:
+
+```
+🟢  đang theo dõi
+🟡  chưa theo dõi / đang thử lại
+🔴  mất phiên — cần người đăng nhập lại
+```
+
+Menu chuột phải: *Bảng điều khiển · Mở trang Grab · Xem nhật ký · Tạm dừng (hoặc Tiếp tục) · Thoát*.
 
 ---
 

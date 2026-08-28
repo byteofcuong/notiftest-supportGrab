@@ -69,6 +69,9 @@ export class StorePoller {
   private donHomNay = new Map<string, number>();
   private donGanNhat: PollerStats['donGanNhat'] = null;
 
+  /** Dang lay chi tiet / gui mot don. Task 10 dua vao day de hoan reload trang. */
+  private dangXuLyDon = false;
+
   /** So lan da thu moi don loi, de bo cuoc sau MAX_ORDER_ATTEMPTS. */
   private attempts = new Map<string, number>();
   /** Nhung don da bo cuoc — khong thu lai, khong bao lai. */
@@ -108,6 +111,21 @@ export class StorePoller {
       this.clearTimer(this.timer);
       this.timer = null;
     }
+  }
+
+  /**
+   * Dang o giua chung viec xu ly mot don.
+   *
+   * Reload trang Grab lam huy moi fetch dang chay trong do, nen phai hoan lai
+   * khi co dai. Mot don den cham vai phut con hon mot don mat han.
+   */
+  get dangBan(): boolean {
+    return this.dangXuLyDon;
+  }
+
+  /** Moc poll thanh cong gan nhat, ms. Watchdog dua vao day. */
+  get lastPollAtMs(): number | null {
+    return this.lastPollAt;
   }
 
   get stats(): PollerStats {
@@ -152,9 +170,14 @@ export class StorePoller {
       // can xac minh "poller con song khong" thi bat LOG_LEVEL=debug.
       logger.debug(`[${store.ccmanyStoreID}] nhip poll OK - ${orders.length} don trong tab`);
 
-      for (const summary of orders) {
-        if (!summary.orderID) continue;
-        await this.xuLyDon(summary.orderID, summary.times?.createdAt ?? null, summary.displayID);
+      this.dangXuLyDon = true;
+      try {
+        for (const summary of orders) {
+          if (!summary.orderID) continue;
+          await this.xuLyDon(summary.orderID, summary.times?.createdAt ?? null, summary.displayID);
+        }
+      } finally {
+        this.dangXuLyDon = false;
       }
     } catch (err) {
       if (err instanceof SessionExpiredError) {

@@ -186,9 +186,37 @@ export class GrabWindow {
     return url !== null && url.includes('merchant.grab.com');
   }
 
-  async reload(): Promise<void> {
-    if (!this.window || this.window.isDestroyed()) return;
-    this.window.webContents.reload();
+  /**
+   * Tai lai trang va CHO tai xong.
+   *
+   * Phai cho: nguoi goi (watchdog, tai lai dinh ky) deu kiem tra ket noi ngay
+   * sau do, ma goi fetch vao mot trang dang chuyen huong thi that bai — se bao
+   * "mat phien" trong khi that ra chi la goi qua som.
+   *
+   * Co tran thoi gian de mot trang khong bao gio tai xong (mat mang giua chung)
+   * khong treo luon dong ho goi no.
+   */
+  async reload(timeoutMs = 30_000): Promise<void> {
+    const window = this.window;
+    if (!window || window.isDestroyed()) return;
+
+    await new Promise<void>((resolve) => {
+      let xong = false;
+      const ketThuc = (): void => {
+        if (xong) return;
+        xong = true;
+        clearTimeout(hen);
+        window.webContents.off('did-stop-loading', ketThuc);
+        resolve();
+      };
+      const hen = setTimeout(() => {
+        this.options.logger.warn(`Trang Grab chua tai xong sau ${timeoutMs / 1000}s - di tiep`);
+        ketThuc();
+      }, timeoutMs);
+
+      window.webContents.once('did-stop-loading', ketThuc);
+      window.webContents.reload();
+    });
   }
 
   /** Duong dan tren dia noi cookie phien duoc luu. */

@@ -38,8 +38,13 @@ function staticHeaders(merchantID: string): Record<string, string> {
 
 /** Mat phien: nguoi dung phai dang nhap lai, khong thu lai duoc bang code. */
 export class SessionExpiredError extends Error {
+  /** `status` = 0 nghia la suy ra tu cho cua so dang dung, khong phai tu ma HTTP. */
   constructor(readonly status: number) {
-    super(`Phien Grab da het han (HTTP ${status}) - can dang nhap lai`);
+    super(
+      status === 0
+        ? 'Phien Grab da het han (cua so da bi da ve trang dang nhap) - can dang nhap lai'
+        : `Phien Grab da het han (HTTP ${status}) - can dang nhap lai`,
+    );
     this.name = 'SessionExpiredError';
   }
 }
@@ -63,6 +68,11 @@ export interface ScriptRunner {
 export interface GrabClientOptions {
   /** Tra ve null khi cua so Grab chua san sang. */
   getRunner: () => ScriptRunner | null;
+  /**
+   * URL hien tai cua cua so Grab. CHI dung de phan loai mot loi DA XAY RA —
+   * xem `laTrangDangNhap()`.
+   */
+  getUrl?: () => string | null;
   timeoutMs?: number;
 }
 
@@ -142,6 +152,13 @@ export class GrabClient {
       throw new SessionExpiredError(raw.status);
     }
     if (raw.status === 0) {
+      // fetch that bai o tang mang, khong co ma HTTP nao de doc. Hai nguyen
+      // nhan hoan toan khac nhau lai cho ra cung mot ket qua o day:
+      //   - rot mang / Grab sap  -> cho la duoc, tu khoi
+      //   - da bi da ve trang dang nhap -> phai co nguoi dang nhap lai
+      // Phan biet duoc thi mot lan mat phien moi bao dung, thay vi im lang bao
+      // "loi mang" trong khi ca buoi khong don nao ve.
+      if (this.laTrangDangNhap()) throw new SessionExpiredError(0);
       throw new GrabApiError(`Khong goi duoc: ${raw.error ?? 'khong ro'}`, 0);
     }
     if (!raw.ok) {
@@ -153,6 +170,24 @@ export class GrabClient {
     } catch {
       throw new GrabApiError('Grab tra ve thu khong phai JSON', raw.status);
     }
+  }
+
+  /**
+   * Cua so hien khong con o merchant.grab.com nua.
+   *
+   * KHONG dung URL de doan "da dang nhap chua" — do la cuoc dua thoi gian da
+   * mac mot lan roi (xem grab-window.ts). O day khac han: chi hoi khi mot lan
+   * goi API DA that bai, va cau hoi la "vi sao no that bai". Luc do URL la
+   * bang chung chac chan, khong con la du doan.
+   *
+   * Trang dang nhap nam o weblogin.grab.com — khac origin, nen fetch sang
+   * api.grab.com bi CORS chan va tra ve dung "Failed to fetch" y het luc rot
+   * mang.
+   */
+  private laTrangDangNhap(): boolean {
+    const url = this.options.getUrl?.();
+    if (!url) return false;
+    return !url.startsWith('https://merchant.grab.com');
   }
 
   private async run(

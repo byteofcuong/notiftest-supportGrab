@@ -19,9 +19,20 @@ export interface AppStatus {
   pageLoaded: boolean;
   userAgent: string;
   partitionPath: string;
+  /** Duong dan file nhat ky, cho nut "Xem nhat ky". */
+  logPath: string | null;
   lastProbe: ProbeResult | null;
   poller: PollerStats | null;
+  resilience: ResilienceStats | null;
   warnings: string[];
+}
+
+/** Ket qua lam viec cua cac lop bao ve (Task 10). */
+export interface ResilienceStats {
+  lanTaiLaiCuoi: string | null;
+  lanCanThiepCuoi: string | null;
+  soLanCanThiep: number;
+  soLanMoLaiCuaSo: number;
 }
 
 export interface PollerStats {
@@ -49,6 +60,6 @@ contextBridge.exposeInMainWorld('api', {
   hideGrabWindow: (): Promise<void> => ipcRenderer.invoke('grab:hide'),
   reloadGrab: (): Promise<void> => ipcRenderer.invoke('grab:reload'),
   probeGrab: (): Promise<ProbeResult | null> => ipcRenderer.invoke('grab:probe'),
-  startPoller: (): Promise<void> => ipcRenderer.invoke('poller:start'),
-  stopPoller: (): Promise<void> => ipcRenderer.invoke('poller:stop'),
+  togglePoller: (): Promise<void> => ipcRenderer.invoke('poller:toggle'),
+  openLog: (): Promise<void> => ipcRenderer.invoke('log:open'),
 });

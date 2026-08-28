@@ -52,6 +52,7 @@
       }
       button:hover { background: #303640; }
       code { color: var(--dim); font-size: 12px; }
+      .ghichu { color: var(--dim); font-size: 12px; margin: -4px 0 12px; line-height: 1.5; }
     </style>
   </head>
   <body>
@@ -69,16 +70,21 @@
       <div class="row"><span class="label">Đơn gần nhất</span><span class="value" id="donganhat">—</span></div>
     </div>
 
+    <p class="ghichu">Đóng cửa sổ này app vẫn chạy — biểu tượng chấm màu nằm ở khay hệ thống,
+      góc phải thanh tác vụ. Muốn tắt hẳn thì bấm chuột phải vào đó rồi chọn Thoát.</p>
+
     <div class="panel">
       <button id="btn-mo">Mở trang Grab / Đăng nhập</button>
       <button id="btn-an">Ẩn đi</button>
       <button id="btn-tai">Tải lại</button>
       <button id="btn-kiem">Kiểm tra kết nối Grab</button>
+      <button id="btn-nhatky">Xem nhật ký</button>
       <button id="btn-dung">Tạm dừng theo dõi</button>
     </div>
 
     <div class="panel">
       <div class="row"><span class="label">Lần kiểm tra cuối</span><span class="value" id="kiemtra">chưa kiểm tra</span></div>
+      <div class="row"><span class="label">Tự bảo vệ</span><span class="value" id="benbi">—</span></div>
       <div class="row"><span class="label">URL hiện tại</span><span class="value"><code id="url">—</code></span></div>
       <div class="row"><span class="label">User-agent</span><span class="value"><code id="ua">—</code></span></div>
       <div class="row"><span class="label">Thư mục phiên</span><span class="value"><code id="phien">—</code></span></div>

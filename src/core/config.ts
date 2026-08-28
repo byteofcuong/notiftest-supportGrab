@@ -36,6 +36,8 @@ export interface AppConfig {
   heartbeatMinutes: number;
   rawRetentionDays: number;
   orderNumberWithDate: boolean;
+  /** Tu chay cung Windows. Chi co tac dung khi da dong goi thanh .exe. */
+  autoStart: boolean;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
 
   /** Goc cho data/cache, data/raw, data/dry-run. */
@@ -99,6 +101,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, root = process.
     heartbeatMinutes: readInt(env.HEARTBEAT_MINUTES, 30),
     rawRetentionDays: readInt(env.RAW_RETENTION_DAYS, 14),
     orderNumberWithDate: readBool(env.ORDER_NUMBER_WITH_DATE, false),
+    autoStart: readBool(env.AUTO_START, true),
     logLevel: readLogLevel(env.LOG_LEVEL),
     dataDir: resolve(root, 'data'),
     warnings,
