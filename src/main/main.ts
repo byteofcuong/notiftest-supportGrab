@@ -5,6 +5,7 @@ import { Logger } from '../core/log.js';
 import { GrabWindow } from './grab-window.js';
 import { AppTray } from './tray.js';
 import { Resilience } from './resilience.js';
+import { chayKichBanPhaHoai } from './chaos.js';
 import { GrabClient, SessionExpiredError } from '../grab/client.js';
 import { OrderCache } from '../core/cache.js';
 import { CcmanyUploader } from '../core/uploader.js';
@@ -172,6 +173,7 @@ function registerIpc(): void {
       dryRun: config.dryRun,
       dryRunReason: config.dryRunReason,
       telegramEnabled: config.telegram !== null,
+      telegramChoGui: telegram?.soTinChoGui ?? 0,
       grabUrl: grabWindow?.currentUrl() ?? null,
       pageLoaded: grabWindow?.pageLoaded() ?? false,
       userAgent: app.userAgentFallback,
@@ -314,6 +316,9 @@ app.whenReady().then(async () => {
       },
     });
     resilience.start();
+
+    // Chi khi DEV_CHAOS=true. Xem chaos.ts.
+    if (config.devChaos) chayKichBanPhaHoai({ grabWindow, logger });
 
     // LUON bat poller, ke ca khi lan kiem tra dau tien that bai.
     //

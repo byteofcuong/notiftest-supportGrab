@@ -6,7 +6,8 @@
  * biet chinh no da dung im tu nua tieng truoc. Bon dong ho o day lam nhung viec
  * do — moi cai doc lap, mot cai chet khong keo theo cai khac.
  *
- *   30 giay   canh cua so   cua so bi huy thi mo lai · poll dung im thi tai lai trang
+ *   30 giay   canh cua so   cua so bi huy thi mo lai · trang loi thi tai lai ·
+ *                           poll dung im qua lau thi tai lai · gui bu Telegram
  *   60 phut   tai lai trang chong Chromium phinh bo nho khi mo lien tuc nhieu ngay
  *   30 phut   nhip tim      mot dong Telegram de biet cong cu con song
  *    6 gio    don rac       xoa JSON tho qua han
@@ -68,6 +69,8 @@ export class Resilience {
   private canThiepLanCuoi: number | null = null;
   private soLanCanThiep = 0;
   private soLanMoLaiCuaSo = 0;
+  /** So lan lien tiep phai sua trang loi, de khong ghi log day man hinh. */
+  private soLanSuaTrangLienTiep = 0;
 
   constructor(private readonly deps: ResilienceDeps) {
     this.now = deps.now ?? Date.now;
@@ -130,7 +133,27 @@ export class Resilience {
       return; // vua mo lai xong thi chua co gi de canh nua
     }
 
-    // 2. Cua so con day nhung poll dung im — trang co the da treo hoac mat
+    // 2. Trang dang la trang loi cua Chromium: fetch tu do khong bao gio thanh
+    //    cong nua, ke ca khi mang da ve. Phai tai lai. Thu MOI 30 GIAY chu
+    //    khong doi watchdog 3 phut — luc mang vua ve, moi giay cho la mot giay
+    //    don co the roi.
+    if (grabWindow.trangDangHong()) {
+      this.soLanSuaTrangLienTiep += 1;
+      // Mat mang dai thi day se lap lai hang tram lan; chi ghi to lan dau.
+      const ghi = this.soLanSuaTrangLienTiep === 1 ? logger.warn : logger.debug;
+      ghi.call(logger, 'Trang Grab dang la trang loi - tai lai', {
+        lanThu: this.soLanSuaTrangLienTiep,
+      });
+      await this.taiLai('trang loi');
+      return;
+    }
+    this.soLanSuaTrangLienTiep = 0;
+
+    // 3. Mang dang chay: tranh thu gui bu nhung canh bao da hong luc mat mang.
+    //    Mot luot poll vua thanh cong la bang chung du chac rang mang da ve.
+    void this.guiBuTelegram();
+
+    // 4. Cua so con day nhung poll dung im — trang co the da treo hoac mat
     //    ket noi ngam. Tai lai la thu duy nhat lam duoc ma khong can nguoi.
     const quyetDinh = quyetDinhWatchdog({
       state: poller.stats.state,
@@ -153,6 +176,23 @@ export class Resilience {
     );
 
     await this.taiLai('watchdog');
+  }
+
+  /**
+   * Gui bu canh bao da hong.
+   *
+   * Chi goi khi vua co mot luot poll thanh cong trong vong 60 giay. Goi bua
+   * trong luc van mat mang thi moi tin ton toi 20 giay cho hoai cong.
+   */
+  private async guiBuTelegram(): Promise<void> {
+    const { telegram, poller, logger } = this.deps;
+    if (telegram.soTinChoGui === 0) return;
+
+    const moc = poller.lastPollAtMs;
+    if (moc === null || this.now() - moc > 60_000) return;
+
+    const daGui = await telegram.guiBu();
+    if (daGui > 0) logger.info(`Da gui bu ${daGui} canh bao ton lai tu luc mat mang`);
   }
 
   // ── 60 phut: tai lai cho nhe bo nho ────────────────────────────────────────

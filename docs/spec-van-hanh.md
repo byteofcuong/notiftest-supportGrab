@@ -502,6 +502,9 @@ tức là các lớp bảo vệ nằm ngoài vòng lặp lấy đơn:
 | Lớp | Cơ chế | Trạng thái |
 |---|---|---|
 | Cửa sổ Grab bị huỷ | Đồng hồ 30s gọi `ensureOpen()`, mở lại rồi kiểm tra kết nối | ✅ đã làm, đo được ~20s phục hồi |
+| **Trang thành trang lỗi Chromium** | Đồng hồ 30s phát hiện `did-fail-load` rồi tải lại | ✅ đã làm |
+| **Cảnh báo phát sinh lúc mất mạng** | Xếp hàng, gửi bù khi có lượt poll thành công | ✅ đã làm |
+| **Phục hồi không ai biết** | Mỗi lần trở lại bình thường ghi một dòng `DA PHUC HOI` + Telegram | ✅ đã làm |
 | Phiên mất khi tắt đột ngột | Ghi cookie xuống đĩa mỗi 5 phút và trước khi thoát | ✅ đã làm |
 | Reload trang định kỳ | Mỗi 60 phút; hoãn lại nếu đang xử lý dở một đơn | ✅ đã làm |
 | Poll đứng im không báo lỗi | Watchdog theo **mốc poll thành công gần nhất**, không theo URL | ✅ đã làm |
@@ -514,6 +517,56 @@ tức là các lớp bảo vệ nằm ngoài vòng lặp lấy đơn:
 > Đã quan sát được: Grab tự nhảy `/profile/logout` → trang đăng nhập → quay lại trong
 > khoảng 2 giây rồi hoạt động bình thường. Watchdog nhìn URL sẽ đá nhầm đúng lúc nó
 > đang tự phục hồi.
+
+### Bốn cái bẫy của "mất mạng", phát hiện khi thử thật
+
+Rút mạng ra là phép thử tưởng đơn giản nhất, nhưng nó phơi ra ba lỗi mà đọc code không thấy:
+
+**1. Cảnh báo về mất mạng thì phải gửi qua mạng.** Không có hàng chờ thì đúng lúc cần báo nhất
+là lúc chắc chắn báo không tới — và sau khi mạng về cũng không có nốt, vì cờ "đã báo một lần"
+đã lật rồi. Nên mọi tin gửi hỏng đều được giữ lại (trần 20 tin, **giữ tin cũ nhất** vì tin đầu
+tiên mới nói được sự cố bắt đầu lúc nào) và gửi bù kèm giờ phát sinh.
+
+**2. Trang lỗi của Chromium là trạng thái chết lặng.** Tải trang thất bại một lần thì cửa sổ vẫn
+còn, `runner()` vẫn trả về webContents, nhìn qua mọi thứ bình thường. Nhưng tài liệu đang hiển
+thị là `chrome-error://chromewebdata/`, và `fetch` từ đó sang `api.grab.com` **không bao giờ
+thành công nữa, kể cả khi mạng đã về**. Chỉ tải lại trang mới thoát ra được — nên đồng hồ 30s
+phải canh riêng việc này, không đợi watchdog 3 phút.
+
+**3. Ở mức log `info`, poll thành công không ghi gì cả.** Chỉ poll hỏng mới ghi. Nghĩa là đọc log
+**không phân biệt được** "đã chạy lại rồi" với "vẫn hỏng, chỉ là thôi không ghi nữa". Mọi lần
+trở lại bình thường phải có một dòng rõ ràng — phục hồi phải ồn ào ngang với hỏng.
+
+**4. Cờ "trang đang hỏng" bị chính Chromium xoá ngay sau khi bật.** Khi một lần tải thất bại,
+Chromium nạp trang lỗi của nó **như một tài liệu bình thường**, nên thứ tự sự kiện là:
+
+```
+did-start-loading → did-fail-load → did-finish-load → did-stop-loading
+                    ^ bật cờ        ^ xoá cờ ngay lập tức
+```
+
+Xoá cờ ở `did-finish-load` là đường sửa nhanh 30 giây **không bao giờ chạy**, và phải đợi
+watchdog 3 phút mới thoát ra được. Cờ phải xoá ở `did-start-loading`.
+
+### Thử mất mạng mà không phải rút dây
+
+Hai lần đầu thử bằng cách rút mạng thật, cả hai lần đều **kết luận sai**: mất mạng thật thì
+không điều khiển được thời điểm, không lặp lại được, và người thử bỏ cuộc trước khi app kịp
+phục hồi (lần đó nó phục hồi ở phút thứ 6, sau khi đã bị kết luận là hỏng).
+
+Nên có `DEV_CHAOS=true`: app tự ngắt mạng **của riêng phiên Grab** 200 giây rồi nối lại, ghi rõ
+từng mốc vào nhật ký. Chạy hết trong 4 phút, lặp lại được, đọc kết quả thẳng từ log.
+
+Hai điều đã học khi làm cái này:
+
+- **`enableNetworkEmulation` không chặn được `fetch` chạy trong trang.** Poll vẫn thành công 15
+  giây sau khi "ngắt mạng" — phép thử báo xanh giả. Phải dùng `webRequest.onBeforeRequest` huỷ
+  mọi request thì mới chặn được cả điều hướng lẫn fetch.
+- **Đừng viết chuỗi đánh dấu cần tìm vào chính dòng thông báo kỳ vọng.** Vòng chờ tự động khớp
+  trúng dòng "kỳ vọng thấy X" chứ không phải sự kiện X, và báo thành công trong khi chưa có gì
+  xảy ra.
+
+> ⚠️ `DEV_CHAOS` tuyệt đối không được bật trên máy quán.
 
 ### Chạy dài ngày — cái gì sẽ hỏng trước
 

@@ -28,6 +28,8 @@ export interface GrabWindowOptions {
 export class GrabWindow {
   private window: BrowserWindow | null = null;
   private quitting = false;
+  /** Lan tai gan nhat that bai — trang dang la trang loi cua Chromium. */
+  private trangHong = false;
 
   constructor(private readonly options: GrabWindowOptions) {}
 
@@ -86,13 +88,27 @@ export class GrabWindow {
       this.hide();
     });
 
+    // Co `trangHong` PHAI xoa o day, khong duoc xoa o 'did-finish-load'.
+    //
+    // Khi mot lan tai that bai, Chromium nap trang loi cua no NHU MOT TAI LIEU
+    // BINH THUONG, nen thu tu su kien la:
+    //     did-start-loading -> did-fail-load -> did-finish-load -> did-stop-loading
+    // Xoa co o 'did-finish-load' thi co vua bat len da bi xoa ngay lap tuc, va
+    // duong sua nhanh 30 giay khong bao gio chay. Da dam phai that: trang thanh
+    // trang trang, va phai doi watchdog 3 phut moi thoat ra duoc.
+    window.webContents.on('did-start-loading', () => {
+      this.trangHong = false;
+    });
+
     window.webContents.on('did-finish-load', () => {
       this.options.logger.debug('Trang Grab tai xong', { url: window.webContents.getURL() });
     });
 
-    window.webContents.on('did-fail-load', (_e, code, description, url) => {
+    window.webContents.on('did-fail-load', (_e, code, description, url, laKhungChinh) => {
       // -3 la ERR_ABORTED, xay ra binh thuong khi trang tu chuyen huong.
       if (code === -3) return;
+      // Khung con hong (quang cao, iframe) khong lam trang chinh mat tac dung.
+      if (laKhungChinh) this.trangHong = true;
       this.options.logger.warn('Tai trang Grab that bai', { code, description, url });
     });
 
@@ -116,6 +132,21 @@ export class GrabWindow {
     this.window = null;
     await this.open();
     return true;
+  }
+
+  /**
+   * Trang hien tai la trang loi cua Chromium, khong phai trang Grab.
+   *
+   * Day la trang thai CHET LANG nguy hiem nhat: cua so van con, `runner()` van
+   * tra ve webContents, moi thu nhin qua deu binh thuong — nhung tai lieu dang
+   * hien thi la `chrome-error://chromewebdata/`, va `fetch` tu do sang
+   * api.grab.com khong bao gio thanh cong nua, KE CA khi mang da ve. Chi tai
+   * lai trang moi thoat ra duoc.
+   *
+   * (Quan sat duoc o lua thu rut mang Task 10: mang ve roi ma poll van hong.)
+   */
+  trangDangHong(): boolean {
+    return this.trangHong;
   }
 
   /** Hien cua so ra de nguoi dung dang nhap bang tay. */
@@ -158,6 +189,28 @@ export class GrabWindow {
     } catch (err) {
       this.options.logger.warn('Khong ghi duoc phien xuong dia', err);
     }
+  }
+
+  /**
+   * Bat/tat gia lap mat mang CHO RIENG phien Grab.
+   *
+   * Dung `webRequest.onBeforeRequest` de huy moi request, KHONG dung
+   * `enableNetworkEmulation`: da thu, no khong chan duoc `fetch` chay ben trong
+   * trang — poll van thanh cong 15 giay sau khi "ngat mang", tuc la phep thu
+   * cho ket qua xanh gia. Huy request thi chan duoc ca dieu huong lan fetch.
+   *
+   * Chi dung de kiem chung kha nang tu phuc hoi ma khong phai rut day mang
+   * that. Luu y: chi cat mang cua Chromium — `fetch` tu Node (ccmany, Telegram)
+   * van chay binh thuong, nen kich ban nay KHONG kiem chung duoc hang cho gui bu.
+   */
+  async gioLapMatMang(matMang: boolean): Promise<void> {
+    const phien = session.fromPartition(PARTITION);
+    if (matMang) {
+      phien.webRequest.onBeforeRequest((_details, callback) => callback({ cancel: true }));
+    } else {
+      phien.webRequest.onBeforeRequest(null);
+    }
+    this.options.logger.warn(matMang ? 'GIA LAP: da ngat mang' : 'GIA LAP: da noi lai mang');
   }
 
   /** URL hien tai — dung de doan xem con phien hay da bi da ve trang dang nhap. */

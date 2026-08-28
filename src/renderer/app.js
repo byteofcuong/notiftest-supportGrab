@@ -33,7 +33,14 @@ async function refresh() {
 
   set('quan', `${status.storeName} · ${status.merchantID}`);
   set('chedo', status.dryRun ? `CHẠY KHÔ — ${status.dryRunReason}` : 'GỬI THẬT lên ccmany');
-  set('telegram', status.telegramEnabled ? 'đã bật' : 'chưa cấu hình');
+  set(
+    'telegram',
+    !status.telegramEnabled
+      ? 'chưa cấu hình'
+      : status.telegramChoGui > 0
+        ? `đã bật · ${status.telegramChoGui} tin đang chờ gửi bù`
+        : 'đã bật',
+  );
 
   const poller = status.poller;
   set('donhomnay', poller ? String(poller.soDonHomNay) : '—');

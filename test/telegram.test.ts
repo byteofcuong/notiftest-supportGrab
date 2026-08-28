@@ -140,3 +140,129 @@ describe('formatOrder', () => {
     expect(text).not.toContain('Thue:');
   });
 });
+
+/**
+ * Nhom nay ghim bai hoc dat nhat cua Task 10: su co dang lo nhat la MAT MANG,
+ * ma canh bao ve mat mang thi lai phai gui qua mang. Khong co hang cho thi dung
+ * luc can bao nhat la luc chac chan bao khong toi.
+ */
+describe('hang cho gui muon', () => {
+  const T0 = Date.parse('2026-08-28T09:15:00Z');
+
+  /** Ban gia fetch: bat/tat duoc "mang" giua chung. */
+  function mang() {
+    const trangThai = { song: true };
+    const fetchImpl = vi.fn(async () => {
+      if (!trangThai.song) throw new TypeError('fetch failed');
+      return new Response('{}', { status: 200 });
+    });
+    return { trangThai, fetchImpl };
+  }
+
+  function notifier(fetchImpl: ReturnType<typeof mang>['fetchImpl'], now = () => T0) {
+    return new TelegramNotifier({
+      config: CONFIG,
+      fetchImpl: fetchImpl as never,
+      maxAttempts: 1,
+      now,
+      sleep: async () => {},
+    });
+  }
+
+  it('gui hong thi giu lai, khong mat', async () => {
+    const { trangThai, fetchImpl } = mang();
+    const tele = notifier(fetchImpl);
+
+    trangThai.song = false;
+    expect(await tele.sendAlert('poll dung im')).toBe(false);
+    expect(tele.soTinChoGui).toBe(1);
+  });
+
+  it('mang ve thi gui bu, kem gio phat sinh', async () => {
+    const { trangThai, fetchImpl } = mang();
+    const tele = notifier(fetchImpl);
+
+    trangThai.song = false;
+    await tele.sendAlert('mat mang luc 16:15');
+    trangThai.song = true;
+
+    expect(await tele.guiBu()).toBe(1);
+    expect(tele.soTinChoGui).toBe(0);
+
+    const body = JSON.parse((fetchImpl.mock.lastCall![1] as RequestInit).body as string);
+    expect(body.text).toContain('gui muon');
+    expect(body.text).toContain('mat mang luc 16:15');
+  });
+
+  it('van mat mang thi gui bu khong lam mat tin', async () => {
+    const { trangThai, fetchImpl } = mang();
+    const tele = notifier(fetchImpl);
+
+    trangThai.song = false;
+    await tele.sendAlert('mot');
+    await tele.sendAlert('hai');
+
+    expect(await tele.guiBu()).toBe(0);
+    expect(tele.soTinChoGui).toBe(2);
+  });
+
+  it('gui bu theo dung thu tu phat sinh', async () => {
+    const { trangThai, fetchImpl } = mang();
+    const tele = notifier(fetchImpl);
+
+    trangThai.song = false;
+    await tele.sendAlert('mot');
+    await tele.sendAlert('hai');
+    await tele.sendAlert('ba');
+    trangThai.song = true;
+
+    expect(await tele.guiBu()).toBe(3);
+    const daGui = fetchImpl.mock.calls
+      .slice(-3)
+      .map((call) => JSON.parse((call[1] as RequestInit).body as string).text as string);
+    expect(daGui[0]).toContain('mot');
+    expect(daGui[1]).toContain('hai');
+    expect(daGui[2]).toContain('ba');
+  });
+
+  // Mat mang ca dem sinh ra hang tram canh bao. Gui bu ca tram tin luc 7h sang
+  // thi khong ai doc — chi lam nguoi ta tat bot di.
+  it('hang cho co tran, va giu tin CU nhat', async () => {
+    const { trangThai, fetchImpl } = mang();
+    const tele = notifier(fetchImpl);
+
+    trangThai.song = false;
+    for (let i = 0; i < 50; i += 1) await tele.sendAlert(`canh bao ${i}`);
+    expect(tele.soTinChoGui).toBe(20);
+
+    trangThai.song = true;
+    await tele.guiBu();
+    const daGui = fetchImpl.mock.calls
+      .map((call) => JSON.parse((call[1] as RequestInit).body as string).text as string)
+      .filter((text) => text.includes('canh bao'));
+    // Tin dau tien la tin noi ro su co bat dau luc nao — phai con.
+    expect(daGui[0]).toContain('canh bao 0');
+    expect(daGui.at(-1)).toContain('canh bao 19');
+  });
+
+  it('noi that la da bo bot bao nhieu tin', async () => {
+    const { trangThai, fetchImpl } = mang();
+    const tele = notifier(fetchImpl);
+
+    trangThai.song = false;
+    for (let i = 0; i < 25; i += 1) await tele.sendAlert(`canh bao ${i}`);
+    trangThai.song = true;
+    await tele.guiBu();
+
+    const tatCa = fetchImpl.mock.calls.map(
+      (call) => JSON.parse((call[1] as RequestInit).body as string).text as string,
+    );
+    expect(tatCa.some((text) => text.includes('Da bo 5 canh bao'))).toBe(true);
+  });
+
+  it('khong cau hinh Telegram thi khong xep hang gi ca', async () => {
+    const tele = new TelegramNotifier({ config: null });
+    expect(await tele.sendAlert('gi do')).toBe(false);
+    expect(tele.soTinChoGui).toBe(0);
+  });
+});

@@ -14,6 +14,8 @@ export interface AppStatus {
   dryRun: boolean;
   dryRunReason: string | null;
   telegramEnabled: boolean;
+  /** So canh bao dang cho gui bu vi luc phat sinh khong co mang. */
+  telegramChoGui: number;
   grabUrl: string | null;
   /** Chi la "trang da tai", KHONG phai "da dang nhap" — xem grab-window.ts */
   pageLoaded: boolean;

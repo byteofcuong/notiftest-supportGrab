@@ -15,6 +15,7 @@ let root: string;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'poller-test-'));
+  dongHo.gioHienTai = T0;
 });
 
 afterEach(() => {
@@ -42,10 +43,15 @@ function fixture(name: string): unknown {
  * tuc la van di qua toan bo GrabClient that (dung URL, doc JSON, anh xa loi),
  * chi thay moi cho chay fetch trong trang.
  */
+/** Dong ho dich duoc, de do "da hong bao lau". */
+const dongHo = { gioHienTai: T0 };
+
 function build(options: {
   list?: unknown;
   detail?: unknown;
   listError?: Error;
+  /** Loi thay doi duoc giua cac nhip — de dung canh hong roi phuc hoi. */
+  listErrorHienTai?: () => Error | null;
   detailError?: Error;
   uploadOk?: boolean;
   dryRun?: boolean;
@@ -59,6 +65,8 @@ function build(options: {
       return { status: 200, ok: true, body: JSON.stringify(fixture('open-status.json')) };
     }
     if (code.includes('orders-pagination')) {
+      const loiDong = options.listErrorHienTai?.();
+      if (loiDong) throw loiDong;
       if (options.listError) throw options.listError;
       return { status: 200, ok: true, body: JSON.stringify(list) };
     }
@@ -107,10 +115,10 @@ function build(options: {
     uploader,
     telegram,
     logger: new Logger({ level: 'error' }),
-    now: () => T0,
+    now: () => dongHo.gioHienTai,
   });
 
-  return { poller, cache, executeJavaScript, uploadFetch, telegramFetch, config };
+  return { poller, cache, executeJavaScript, uploadFetch, telegramFetch, config, dongHo, telegram };
 }
 
 // ── Luong chinh ──────────────────────────────────────────────────────────────
@@ -303,5 +311,72 @@ describe('che do chay kho', () => {
 
     expect(uploadFetch).not.toHaveBeenCalled();
     expect(cache.has('001500221566-C8D2VEDVCY5WSA')).toBe(true);
+  });
+});
+
+/**
+ * Phuc hoi phai on ao ngang voi hong.
+ *
+ * O muc log `info`, luot poll thanh cong khong ghi gi ca — chi luot hong moi
+ * ghi. Nen doc log KHONG phan biet duoc "da chay lai roi" voi "van hong, chi la
+ * thoi khong ghi nua". Da dam phai dung cho nay khi thu rut mang o Task 10: log
+ * dung o dong hong cuoi cung va khong ai doan duoc ket cuc.
+ */
+describe('bao khi phuc hoi', () => {
+  function tinNhan(fetchMock: { mock: { calls: unknown[][] } }): string[] {
+    return fetchMock.mock.calls.map(
+      (call) => JSON.parse((call[1] as RequestInit).body as string).text as string,
+    );
+  }
+
+  it('mat mang roi ket noi lai thi bao mot tin', async () => {
+    let loi: Error | null = new TypeError('fetch failed');
+    const { poller, telegramFetch } = build({ listErrorHienTai: () => loi });
+
+    await poller.tick();
+    expect(poller.stats.state).toBe('loi');
+    expect(tinNhan(telegramFetch).some((t) => t.includes('tro lai'))).toBe(false);
+
+    // Bon phut sau, mang ve.
+    dongHo.gioHienTai = T0 + 4 * 60_000;
+    loi = null;
+    await poller.tick();
+
+    expect(poller.stats.state).toBe('dang-chay');
+    const bao = tinNhan(telegramFetch).find((t) => t.includes('Da ket noi lai duoc'));
+    expect(bao).toBeDefined();
+    expect(bao).toContain('4 phut');
+  });
+
+  it('mat phien roi dang nhap lai thi bao dung cau khac', async () => {
+    let loi: Error | null = new SessionExpiredError(401);
+    const { poller, telegramFetch } = build({ listErrorHienTai: () => loi });
+
+    await poller.tick();
+    expect(poller.stats.state).toBe('mat-phien');
+
+    dongHo.gioHienTai = T0 + 30_000;
+    loi = null;
+    await poller.tick();
+
+    expect(poller.stats.state).toBe('dang-chay');
+    expect(tinNhan(telegramFetch).some((t) => t.includes('Da co phien Grab tro lai'))).toBe(true);
+  });
+
+  it('chay binh thuong lien tuc thi KHONG bao phuc hoi', async () => {
+    const { poller, telegramFetch } = build({ listErrorHienTai: () => null });
+    await poller.tick();
+    await poller.tick();
+    expect(tinNhan(telegramFetch).some((t) => t.includes('tro lai'))).toBe(false);
+  });
+
+  it('van dang hong thi khong bao phuc hoi som', async () => {
+    const { poller, telegramFetch } = build({
+      listErrorHienTai: () => new TypeError('fetch failed'),
+    });
+    await poller.tick();
+    await poller.tick();
+    await poller.tick();
+    expect(tinNhan(telegramFetch).some((t) => t.includes('tro lai'))).toBe(false);
   });
 });

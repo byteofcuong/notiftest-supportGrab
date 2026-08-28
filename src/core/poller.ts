@@ -69,6 +69,9 @@ export class StorePoller {
   private donHomNay = new Map<string, number>();
   private donGanNhat: PollerStats['donGanNhat'] = null;
 
+  /** Luc bat dau gap su co, de noi duoc "da hong bao lau" khi phuc hoi. */
+  private hongTu: number | null = null;
+
   /** Dang lay chi tiet / gui mot don. Task 10 dua vao day de hoan reload trang. */
   private dangXuLyDon = false;
 
@@ -161,9 +164,11 @@ export class StorePoller {
     try {
       await this.refreshOpenStatus();
       const list = await client.listPreparing(store.grabMerchantID);
+      const truocDo = this.state;
       this.lastPollAt = this.now();
       this.state = 'dang-chay';
       this.lastError = null;
+      if (truocDo === 'loi' || truocDo === 'mat-phien') this.baoPhucHoi(truocDo);
 
       const orders = list.orders ?? [];
       // Muc debug: nhip thanh cong ma khong co don thi khong ghi gi ca, nen khi
@@ -184,6 +189,7 @@ export class StorePoller {
         await this.baoMatPhien(err);
         return;
       }
+      if (this.state !== 'loi') this.hongTu = this.now();
       this.state = 'loi';
       this.lastError = (err as Error).message;
       logger.warn(`[${store.ccmanyStoreID}] Poll that bai`, err);
@@ -305,8 +311,28 @@ export class StorePoller {
       logger.error(`[${store.ccmanyStoreID}] MAT PHIEN GRAB - can dang nhap lai`, err);
       void telegram.sendAlert(`${store.storeName}: mat phien Grab, can dang nhap lai tren may quan`);
     }
+    if (this.state !== 'mat-phien') this.hongTu = this.now();
     this.state = 'mat-phien';
     this.lastError = err.message;
+  }
+
+  /**
+   * Phuc hoi phai on ao ngang voi hong.
+   *
+   * O muc log `info`, mot luot poll thanh cong khong ghi gi ca — chi luot hong
+   * moi ghi. Nghia la doc log KHONG phan biet duoc "da chay lai roi" voi "van
+   * dang hong, chi la thoi khong ghi nua". Da dam phai dung cho nay khi thu rut
+   * mang o Task 10: log dung o dong hong cuoi cung, va khong ai doan duoc ket
+   * cuc. Nen moi lan tro lai binh thuong deu phai co MOT dong ro rang.
+   */
+  private baoPhucHoi(truocDo: PollerState): void {
+    const { store, logger, telegram } = this.deps;
+    const bao = truocDo === 'mat-phien' ? 'Da co phien Grab tro lai' : 'Da ket noi lai duoc';
+    const lau = this.hongTu === null ? '' : ` sau ${moTaKhoang(this.now() - this.hongTu)}`;
+    this.hongTu = null;
+
+    logger.info(`[${store.ccmanyStoreID}] DA PHUC HOI - ${bao}${lau}`);
+    void telegram.sendAlert(`${store.storeName}: ${bao}${lau}, dang theo doi don binh thuong`);
   }
 
   private async refreshOpenStatus(): Promise<void> {
@@ -331,4 +357,14 @@ export class StorePoller {
     // Theo gio Viet Nam, de "hom nay" trung voi ngay lam viec cua quan.
     return new Date(this.now() + 7 * 3600_000).toISOString().slice(0, 10);
   }
+}
+
+/** Khoang thoi gian cho nguoi doc: "45 giay", "3 phut", "2 gio 10 phut". */
+function moTaKhoang(ms: number): string {
+  const giay = Math.round(ms / 1000);
+  if (giay < 90) return `${giay} giay`;
+  const phut = Math.round(giay / 60);
+  if (phut < 90) return `${phut} phut`;
+  const gio = Math.floor(phut / 60);
+  return `${gio} gio ${phut % 60} phut`;
 }

@@ -38,6 +38,8 @@ export interface AppConfig {
   orderNumberWithDate: boolean;
   /** Tu chay cung Windows. Chi co tac dung khi da dong goi thanh .exe. */
   autoStart: boolean;
+  /** Chu dong ngat mang de thu tu phuc hoi. CHI dung khi phat trien. */
+  devChaos: boolean;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
 
   /** Goc cho data/cache, data/raw, data/dry-run. */
@@ -102,6 +104,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, root = process.
     rawRetentionDays: readInt(env.RAW_RETENTION_DAYS, 14),
     orderNumberWithDate: readBool(env.ORDER_NUMBER_WITH_DATE, false),
     autoStart: readBool(env.AUTO_START, true),
+    devChaos: readBool(env.DEV_CHAOS, false),
     logLevel: readLogLevel(env.LOG_LEVEL),
     dataDir: resolve(root, 'data'),
     warnings,
