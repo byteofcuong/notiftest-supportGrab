@@ -4,6 +4,8 @@ har/
 
 out/
 release/
+# icon.ico sinh ra tu scripts/make-icon.mjs, khong giu ban nhi phan trong repo
+build/
 node_modules/
 dist/
 .env

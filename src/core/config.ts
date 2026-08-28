@@ -10,7 +10,7 @@
  * la dang thu.
  */
 
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { StoreConfig, StoresFile } from './types.js';
 
@@ -109,6 +109,45 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, root = process.
     dataDir: resolve(root, 'data'),
     warnings,
   };
+}
+
+/**
+ * Chon thu muc ghi duoc cho data/.
+ *
+ * Ban dong goi mac dinh cai vao thu muc rieng cua nguoi dung nen ghi duoc.
+ * Nhung neu ai do cai vao `C:\Program Files` thi thu muc do CHI DOC voi tai
+ * khoan thuong — va cai kieu hong do la kieu te nhat: Logger nuot loi ghi file,
+ * cache khong luu duoc, nen cong cu van chay ma khong de lai dau vet gi, va moi
+ * lan khoi dong lai la gui trung toan bo don trong cua so 15 phut.
+ *
+ * Nen: thu ghi that mot file, khong duoc thi lui ve thu muc du lieu nguoi dung.
+ */
+export function chonThuMucGhiDuoc(
+  uuTien: string,
+  duPhong: string,
+): { dir: string; canhBao: string | null } {
+  if (ghiDuoc(uuTien)) return { dir: uuTien, canhBao: null };
+  if (ghiDuoc(duPhong)) {
+    return {
+      dir: duPhong,
+      canhBao: `Khong ghi duoc vao ${uuTien} - chuyen du lieu sang ${duPhong}`,
+    };
+  }
+  // Ca hai deu hong thi van tra ve cho uu tien: de loi noi ra o dung cho thay
+  // vi am tham dung mot duong dan khac cung khong ghi duoc.
+  return { dir: uuTien, canhBao: `KHONG ghi duoc vao ${uuTien} lan ${duPhong}` };
+}
+
+function ghiDuoc(dir: string): boolean {
+  const thu = join(dir, '.thu-ghi');
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(thu, 'x', 'utf8');
+    rmSync(thu, { force: true });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Doc config/stores.json. Nem loi neu hong — khong co quan thi khong chay duoc. */

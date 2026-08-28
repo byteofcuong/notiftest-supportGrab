@@ -8,15 +8,23 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build:ts": "tsc",
-    "dev": "npm run build:ts && node scripts/dev.mjs",
+    "dev": "npm run build && node scripts/dev.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "fixtures": "node scripts/extract-fixtures.mjs"
+    "fixtures": "node scripts/extract-fixtures.mjs",
+    "build:renderer": "node scripts/copy-renderer.mjs",
+    "build": "npm run build:ts && npm run build:renderer",
+    "pack": "npm run build && npm run build:icon && electron-builder --dir",
+    "dist": "npm run build && npm run build:icon && electron-builder",
+    "build:icon": "node scripts/make-icon.mjs",
+    "portable": "npm run build && npm run build:icon && node scripts/make-portable.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
     "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
-  }
+  },
+  "author": "nphcuong"
 }

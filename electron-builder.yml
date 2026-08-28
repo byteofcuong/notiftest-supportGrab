@@ -1,0 +1,56 @@
+appId: com.nphcuong.grab-order-watcher
+productName: Theo doi don Grab
+copyright: ""
+
+directories:
+  output: release
+  buildResources: build
+
+# ═══ DANH SACH TRANG, KHONG PHAI DANH SACH DEN ═══
+#
+# Mac dinh electron-builder dong goi GAN NHU MOI THU trong thu muc du an. O day
+# thu muc do dang chua:
+#   .env             kho a API ccmany va token bot Telegram
+#   example/har/     ban ghi mang that, co ten va so dien thoai khach
+#   data/            JSON tho cua don da nhan
+# Ba thu do ma di theo file cai dat thi la ro ri du lieu that su, khong phai rui
+# ro ly thuyet. Nen liet ke DUNG nhung gi can, va khong bao gio doi sang kieu
+# "lay het roi loai tru vai cai".
+files:
+  - out/**/*
+  - package.json
+
+# Nam CANH file thuc thi, khong nam trong asar — de sua duoc sau khi cai ma
+# khong phai dong goi lai. Chinh la ly do main.ts lay ROOT tu duong dan .exe.
+extraFiles:
+  - from: config/stores.json
+    to: config/stores.json
+  - from: .env.example
+    to: .env.example
+
+win:
+  # Hai dang: file cai dat, va thu muc nen sang zip de chep tay.
+  #
+  # Ban zip khong phai la phuong an du phong tam bo — tren may co Smart App
+  # Control bat, dung bo cong cu NSIS cung bi chan nen KHONG DUNG duoc file cai
+  # dat, ma chep thu muc thi van chay (neu may do cho phep chay .exe chua ky).
+  target:
+    - nsis
+    - zip
+  icon: build/icon.ico
+  artifactName: TheoDoiDonGrab-${version}-portable.${ext}
+
+nsis:
+  artifactName: TheoDoiDonGrab-Setup-${version}.${ext}
+  # perMachine=false thi cai vao thu muc rieng cua nguoi dung. QUAN TRONG: cai
+  # vao Program Files thi thu muc app CHI DOC, ma data/ (cache, log, JSON tho)
+  # lai nam canh file thuc thi — se khong ghi duoc. main.ts co luoi du phong lui
+  # ve thu muc du lieu nguoi dung, nhung tot nhat la dung roi vao canh do.
+  perMachine: false
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Theo doi don Grab
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false

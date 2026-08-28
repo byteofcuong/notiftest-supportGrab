@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import * as path from 'node:path';
-import { loadConfig, loadEnvFile, loadStores } from '../core/config.js';
+import { chonThuMucGhiDuoc, loadConfig, loadEnvFile, loadStores } from '../core/config.js';
 import { Logger } from '../core/log.js';
 import { GrabWindow } from './grab-window.js';
 import { AppTray } from './tray.js';
@@ -21,11 +21,41 @@ import type { StoreConfig } from '../core/types.js';
  * bao ve o resilience.ts (canh cua so, tai lai trang, nhip tim, don rac).
  */
 
+// ELECTRON_RUN_AS_NODE bien electron.exe thanh mot trinh chay Node thuan: khong
+// co `app`, khong co cua so, va `require('electron')` tra ve mot chuoi duong dan
+// thay vi module. VS Code va vai cong cu khac dat bien nay cho tien trinh con,
+// va no da lam mat thoi gian hai lan trong du an nay.
+//
+// GIOI HAN: rao nay chi cuu duoc truong hop co nguoi goi thang
+// `electron.exe out/main/main.js`. Voi BAN DONG GOI thi no vo dung — bien do
+// lam file thuc thi hanh xu nhu `node` chay rong, tuc la KHONG nap app cua
+// minh, nen khong dong ma nao o day duoc chay. Luc do trieu chung la mot tien
+// trinh vut tat, khong nhat ky, khong thong bao. Khong sua duoc tu ben trong.
+if (process.env.ELECTRON_RUN_AS_NODE) {
+  console.error(
+    [
+      'Khong chay duoc: bien moi truong ELECTRON_RUN_AS_NODE dang duoc dat.',
+      'No bien Electron thanh Node thuan nen app khong the mo cua so.',
+      'Bo bien do di roi chay lai.',
+      'PowerShell:  Remove-Item Env:\\ELECTRON_RUN_AS_NODE',
+    ].join('\n'),
+  );
+  process.exit(1);
+}
+
 // Goc du an. Khi da dong goi thanh .exe thi __dirname nam trong asar, nen lay
 // thu muc chua file thuc thi de .env va config/ van sua duoc sau khi cai.
 const ROOT = app.isPackaged ? path.dirname(app.getPath('exe')) : path.resolve(__dirname, '../..');
 
 loadEnvFile(path.join(ROOT, '.env'));
+
+/**
+ * App duoc Windows tu chay luc dang nhap, chu khong phai nguoi dung tu bam.
+ *
+ * Tham so nay do chinh app dat vao khi bat `openAtLogin` — xem
+ * capNhatTuChayCungWindows().
+ */
+const TU_CHAY = process.argv.includes('--tu-chay');
 
 // PHAI dat TRUOC khi app san sang. Khong dat thi Electron dung ten mac dinh
 // "Electron", va phien Grab se nam o AppData/Roaming/Electron/ — dung chung
@@ -142,6 +172,9 @@ function createControlWindow(): void {
     width: 720,
     height: 520,
     title: 'Theo doi don Grab',
+    // Tu chay cung Windows thi vao thang khay, khong dap cua so vao mat nguoi
+    // ta moi lan bat may — lam the som muon cung co nguoi tat han app di.
+    show: !TU_CHAY,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       backgroundThrottling: false,
@@ -150,7 +183,10 @@ function createControlWindow(): void {
     },
   });
 
-  controlWindow.loadFile(path.join(ROOT, 'src', 'renderer', 'index.html'));
+  // Tinh tu __dirname chu KHONG tu ROOT: khi da dong goi, `src/` khong con nam
+  // canh file thuc thi nua. `out/renderer/` thi co ca o ban dev lan ban dong goi
+  // (scripts/copy-renderer.mjs chep sang do).
+  controlWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   // Dong bang dieu khien = thu xuong khay, KHONG phai thoat. Dong nham mot cai
   // ma tat ca ngay theo doi don thi khong ai biet cho toi khi khach phan nan.
@@ -209,6 +245,12 @@ function registerIpc(): void {
 
 app.whenReady().then(async () => {
   config = loadConfig(process.env, ROOT);
+
+  // PHAI lam truoc khi tao Logger — chinh Logger la thu dau tien can ghi dia.
+  const noiLuu = chonThuMucGhiDuoc(config.dataDir, path.join(app.getPath('userData'), 'data'));
+  if (noiLuu.canhBao) config.warnings.push(noiLuu.canhBao);
+  config.dataDir = noiLuu.dir;
+
   logger = new Logger({ level: config.logLevel, dir: path.join(config.dataDir, 'logs') });
 
   logger.info('=== Khoi dong ===', { root: ROOT, dataDir: config.dataDir });
@@ -363,7 +405,18 @@ function capNhatTuChayCungWindows(): void {
     return;
   }
   try {
-    app.setLoginItemSettings({ openAtLogin: config.autoStart });
+    app.setLoginItemSettings({
+      openAtLogin: config.autoStart,
+      // PHAI dat `name`. Khong dat thi Electron lay ten nhung trong file thuc
+      // thi de dat ten khoa registry — ma ban portable giu nguyen xi
+      // electron.exe nen ten do van la "Electron", ra khoa
+      // `electron.app.Electron`. Bat ky app Electron portable nao khac cung se
+      // ghi de len dung khoa do, va ta mat tu chay ma khong hay biet.
+      // (Da thay that: Notion dang o `electron.app.Notion` ngay canh.)
+      name: 'Theo doi don Grab',
+      // Danh dau de lan chay do biet la may tu bat, ma vao thang khay.
+      args: ['--tu-chay'],
+    });
     logger.info('Tu chay cung Windows', { bat: config.autoStart });
   } catch (err) {
     logger.warn('Khong dat duoc tu-chay-cung-Windows', err);
