@@ -4,6 +4,10 @@ import { loadConfig, loadEnvFile, loadStores } from '../core/config.js';
 import { Logger } from '../core/log.js';
 import { GrabWindow } from './grab-window.js';
 import { GrabClient, SessionExpiredError } from '../grab/client.js';
+import { OrderCache } from '../core/cache.js';
+import { CcmanyUploader } from '../core/uploader.js';
+import { TelegramNotifier } from '../core/telegram.js';
+import { StorePoller } from '../core/poller.js';
 import type { AppConfig } from '../core/config.js';
 import type { StoreConfig } from '../core/types.js';
 
@@ -32,6 +36,8 @@ let logger: Logger;
 let controlWindow: BrowserWindow | null = null;
 let grabWindow: GrabWindow | null = null;
 let grabClient: GrabClient | null = null;
+let poller: StorePoller | null = null;
+let telegram: TelegramNotifier | null = null;
 
 /** Ket qua lan kiem tra ket noi gan nhat, de hien len giao dien. */
 let lastProbe: {
@@ -60,6 +66,13 @@ async function probeGrab(): Promise<void> {
       soDon: list.orders?.length ?? 0,
     };
     logger.info('Kiem tra Grab OK', lastProbe);
+
+    // Phien vua song lai (nguoi dung vua dang nhap) thi bat poller luon,
+    // khong bat nguoi dung phai bam them nut nao nua.
+    if (poller && poller.stats.state === 'dung') {
+      poller.start();
+      logger.info('Da bat poller sau khi kiem tra ket noi thanh cong');
+    }
   } catch (err) {
     const matPhien = err instanceof SessionExpiredError;
     lastProbe = { at, ok: false, matPhien, error: (err as Error).message };
@@ -101,6 +114,7 @@ function registerIpc(): void {
       userAgent: app.userAgentFallback,
       partitionPath: GrabWindow.partitionPath(),
       lastProbe,
+      poller: poller?.stats ?? null,
       warnings: config.warnings,
     };
   });
@@ -117,6 +131,12 @@ function registerIpc(): void {
   ipcMain.handle('grab:probe', async () => {
     await probeGrab();
     return lastProbe;
+  });
+  ipcMain.handle('poller:start', () => {
+    poller?.start();
+  });
+  ipcMain.handle('poller:stop', () => {
+    poller?.stop();
   });
 }
 
@@ -156,9 +176,39 @@ app.whenReady().then(async () => {
 
     grabClient = new GrabClient({ getRunner: () => grabWindow?.runner() ?? null });
 
+    telegram = new TelegramNotifier({ config: config.telegram });
+    poller = new StorePoller({
+      store,
+      config,
+      client: grabClient,
+      cache: new OrderCache(store.ccmanyStoreID, {
+        dir: path.join(config.dataDir, 'cache'),
+        lookbackMinutes: config.orderLookbackMinutes,
+      }),
+      uploader: new CcmanyUploader({
+        url: config.ccmany.url,
+        apiKey: config.ccmany.apiKey,
+        dryRun: config.dryRun,
+        dataDir: config.dataDir,
+      }),
+      telegram,
+      logger,
+    });
+
     // Kiem tra ngay luc khoi dong: day la cach DUY NHAT dang tin de biet phien
     // con song hay khong (doc URL khong dung - xem grab-window.ts).
     await probeGrab();
+
+    if (lastProbe?.ok) {
+      poller.start();
+      void telegram.sendAlert(
+        `Da khoi dong theo doi ${store.storeName}${config.dryRun ? ' (CHAY KHO)' : ''}`,
+      );
+    } else {
+      // Chua co phien thi poll cung vo ich. Cho nguoi dung dang nhap roi bam
+      // "Kiem tra ket noi" — luc do poller tu bat.
+      logger.warn('Chua co phien Grab - chua bat poller. Dang nhap roi bam Kiem tra ket noi.');
+    }
   }
 
   app.on('activate', () => {
@@ -167,6 +217,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', () => {
+  poller?.stop();
   grabWindow?.allowClose();
 });
 

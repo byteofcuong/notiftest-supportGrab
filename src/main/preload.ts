@@ -20,7 +20,17 @@ export interface AppStatus {
   userAgent: string;
   partitionPath: string;
   lastProbe: ProbeResult | null;
+  poller: PollerStats | null;
   warnings: string[];
+}
+
+export interface PollerStats {
+  state: 'dung' | 'dang-chay' | 'mat-phien' | 'loi';
+  lastPollAt: string | null;
+  lastError: string | null;
+  quanDangMo: boolean | null;
+  soDonHomNay: number;
+  donGanNhat: { orderCode: string; total: number | null; at: string } | null;
 }
 
 /** Ket qua goi thu API Grab — cach duy nhat dang tin de biet phien con song. */
@@ -39,4 +49,6 @@ contextBridge.exposeInMainWorld('api', {
   hideGrabWindow: (): Promise<void> => ipcRenderer.invoke('grab:hide'),
   reloadGrab: (): Promise<void> => ipcRenderer.invoke('grab:reload'),
   probeGrab: (): Promise<ProbeResult | null> => ipcRenderer.invoke('grab:probe'),
+  startPoller: (): Promise<void> => ipcRenderer.invoke('poller:start'),
+  stopPoller: (): Promise<void> => ipcRenderer.invoke('poller:stop'),
 });
