@@ -35,6 +35,7 @@ const TEN_APP = 'Theo doi don Grab';
 
 const TAO_LOI_TAT = `@echo off
 rem Tao loi tat ra Desktop, mang icon rieng cua cong cu.
+rem Tham so /nopause: bo buoc doi bam phim, de script khac goi duoc.
 setlocal
 set "THUMUC=%~dp0"
 powershell -NoProfile -Command ^
@@ -45,6 +46,7 @@ powershell -NoProfile -Command ^
   "$s.Description='Theo doi don Grab Merchant va day sang ccmany';" ^
   "$s.Save()"
 echo Da tao loi tat ngoai Desktop.
+if /i "%~1"=="/nopause" goto :eof
 pause
 `;
 

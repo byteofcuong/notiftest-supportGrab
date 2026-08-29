@@ -18,24 +18,38 @@ Nên chuyển máy nghĩa là **chép cả thư mục**, không phải chép m�
 
 ---
 
-## 1. Dựng
+## 1. Dựng — bấm đôi vào `run.cmd`
 
-```powershell
-npm install       # chỉ lần đầu
-npm run portable
+Ở thư mục gốc của dự án. Một file, chạy một phát, làm cả 5 việc:
+
+```
+[1/5] Kiểm tra Node.js
+[2/5] Cài thư viện (chỉ lần đầu)
+[3/5] Kiểm tra mã nguồn — typecheck + toàn bộ test
+[4/5] Đóng gói thành release/portable/
+[5/5] Tạo lối tắt ra desktop
+      → hỏi có nén thành .zip không
 ```
 
-Ra `release/portable/`. Lệnh này gộp bốn việc: biên dịch TypeScript, chép giao diện sang `out/`,
-vẽ lại icon, rồi lắp thư mục.
+**Bước 3 cố ý đặt trước bước 4.** Test hỏng thì nó dừng, không đóng gói. Mang một bản hỏng ra
+quán rồi mới phát hiện thì mất cả buổi, mà lúc đó không có ai ở đó để sửa.
 
-Kiểm tra nhanh trước khi chuyển đi:
+Muốn chạy từng phần thì vẫn còn các lệnh riêng:
 
 ```powershell
 npm run typecheck
 npm test
+npm run portable     # ra release/portable/
 ```
 
-## 2. Nén lại cho dễ chuyển
+## 2. Nén thư mục nào?
+
+**`release\portable`** — đúng một thư mục đó, không phải `release`, không phải cả dự án.
+
+Nén **nội dung bên trong** nó, để giải nén ra là thấy `Theo doi don Grab.exe` ngay, không phải
+lồng thêm một tầng thư mục nữa.
+
+`run.cmd` hỏi ở cuối và làm đúng như vậy. Muốn làm tay:
 
 ```powershell
 Compress-Archive -Path "release\portable\*" -DestinationPath "release\TheoDoiDonGrab.zip" -Force
@@ -43,6 +57,18 @@ Compress-Archive -Path "release\portable\*" -DestinationPath "release\TheoDoiDon
 
 Còn khoảng 150 MB. Chép qua USB, hoặc đẩy lên Drive rồi tải về máy quán — cách nào cũng được,
 đây chỉ là một thư mục bình thường.
+
+> ⚠️ **Nén ngay sau khi đóng gói.** Lúc đó thư mục còn sạch. Nếu bạn đã *chạy thử app từ chính
+> thư mục đó* rồi mới nén thì hai thứ sẽ đi theo file zip:
+>
+> - `.env` — khoá API ccmany và token bot Telegram
+> - `data\` — nhật ký, bộ nhớ chống trùng, và JSON thô của đơn **có tên với số điện thoại khách**
+>
+> Riêng `data\cache\` còn gây một lỗi âm thầm: nó ghi những đơn *đã gửi rồi*. Mang sang máy quán
+> thì đúng những đơn đó sẽ không bao giờ được gửi nữa. Nếu lỡ nén sau khi chạy thử, xoá `data\`
+> và `.env` đi rồi nén lại.
+>
+> File zip do `run.cmd` tạo đã được kiểm: 119 mục, **không có `.env`, không có `data/`**.
 
 ## 3. Trên máy quán
 
@@ -104,6 +130,28 @@ Lệnh kiểm tra ở bước 0 của [cai-dat-may-quan.md](cai-dat-may-quan.md)
 
 ---
 
+## Vì sao vitest bị ghim ở bản 3
+
+Smart App Control **cũng chặn cả bộ chạy test**, không riêng gì bản đóng gói.
+
+vitest 4 dùng rolldown, mà rolldown nạp một file native `.node`. Một hôm đẹp trời nó bị chặn:
+
+```
+ERR_DLOPEN_FAILED: An Application Control policy has blocked this file
+```
+
+Test đang chạy tốt hôm trước, hôm sau mở máy lên là hỏng, **không ai sửa gì cả** — Smart App
+Control tự đánh giá lại. Đã thử ba đường:
+
+| Cách | Kết quả |
+|---|---|
+| Cài bản WASM `@rolldown/binding-wasm32-wasi` | Nạp được, nhưng không phân giải nổi file cấu hình |
+| Đổi đường dẫn sang ổ ảo không có dấu cách (`subst`) | Vẫn hỏng — không phải do dấu cách |
+| **Hạ vitest về bản 3** (dùng esbuild) | ✅ 183 test chạy lại bình thường |
+
+Nên **đừng nâng vitest lên 4** nếu máy dựng còn bật Smart App Control. Đây không phải chuyện
+sở thích phiên bản — nó là ràng buộc của môi trường.
+
 ## Đã kiểm chứng những gì
 
 Trên máy dựng, với Smart App Control **đang bật**:
@@ -115,6 +163,8 @@ Trên máy dựng, với Smart App Control **đang bật**:
 - `--tu-chay` → tiến trình sống, không hiện cửa sổ, vào thẳng khay
 - `Tao loi tat ra desktop.cmd` → lối tắt đúng target, đúng icon
 - Khoá tự-chạy ghi đúng tên `Theo doi don Grab`
+- `run.cmd` chạy trọn 5 bước, thoát mã 0, tạo đúng lối tắt, nén ra zip sạch
+- Và nó **đã thật sự chặn một lần**: khi bộ chạy test hỏng, nó dừng ở bước 3 thay vì đóng gói
 
 **Chưa kiểm chứng:** bản NSIS (không dựng được trên máy này), và toàn bộ chuỗi tự khởi động sau
 khi mất điện trên máy quán thật — đó là bước 10 của [cai-dat-may-quan.md](cai-dat-may-quan.md).
