@@ -48,7 +48,7 @@ export class AppTray {
 
   start(): void {
     this.tray = new Tray(anh('vang'));
-    this.tray.setToolTip('Theo doi don Grab');
+    this.tray.setToolTip('Notiftest-Grab');
     this.veMenu();
     // Bam doi vao bieu tuong la mo bang dieu khien — thoi quen cua Windows.
     this.tray.on('double-click', () => this.options.moBangDieuKhien());
@@ -66,7 +66,7 @@ export class AppTray {
       this.tray.setImage(anh(mau));
       this.mauHienTai = mau;
     }
-    this.tray.setToolTip(`Theo doi don Grab — ${nhan(state, matPhien)}`);
+    this.tray.setToolTip(`Notiftest-Grab — ${nhan(state, matPhien)}`);
 
     if (dangTheoDoi !== this.dangTheoDoi) {
       this.dangTheoDoi = dangTheoDoi;

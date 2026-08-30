@@ -30,7 +30,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GO_CAI_DAT, HUONG_DAN, TAO_LOI_TAT, TEN_APP } from './lib/noi-dung.mjs';
+import { chiAscii, GO_CAI_DAT, HUONG_DAN, TAO_LOI_TAT, TEN_APP } from './lib/noi-dung.mjs';
 
 const goc = join(dirname(fileURLToPath(import.meta.url)), '..');
 const phienBan = JSON.parse(readFileSync(join(goc, 'package.json'), 'utf8')).version;
@@ -87,12 +87,12 @@ writeFileSync(join(dich, 'DOC FILE NAY TRUOC.txt'), HUONG_DAN, 'utf8');
 
 // 6. Loi tat: tao bang .lnk co icon rieng. Viet ra file .cmd de nguoi cai chay
 //    tren may quan — khong tu chay o day, va khong doi quyen quan tri.
-writeFileSync(join(dich, 'Tao loi tat ra desktop.cmd'), TAO_LOI_TAT, 'latin1');
+writeFileSync(join(dich, 'create-shortcut.cmd'), chiAscii(TAO_LOI_TAT, 'create-shortcut.cmd'), 'latin1');
 
 // 7. Trinh go cai dat. Phai nam TRONG thu muc app: luc can go thi thu duy nhat
 //    nguoi ta chac chan tim thay la chinh thu muc do. (Script tu chep minh sang
 //    %TEMP% roi moi xoa — xem GO_CAI_DAT.)
-writeFileSync(join(dich, 'Go cai dat.cmd'), GO_CAI_DAT, 'latin1');
+writeFileSync(join(dich, 'uninstall.cmd'), chiAscii(GO_CAI_DAT, 'uninstall.cmd'), 'latin1');
 
 console.log(`da dong goi: ${dich}`);
 console.log(`  file chay: ${TEN_APP}.exe  (hash y het electron.exe goc)`);

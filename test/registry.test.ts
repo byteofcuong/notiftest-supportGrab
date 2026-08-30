@@ -9,19 +9,19 @@ import { GO_CAI_DAT, KHOA_GO_CAI_DAT as KHOA_TRONG_SCRIPT } from '../scripts/lib
  */
 
 const MAU = {
-  tenHienThi: 'Theo dõi đơn Grab',
+  tenHienThi: 'Notiftest-Grab',
   phienBan: '1.2.3',
-  thuMucCai: 'C:\\Users\\Nguyen Van A\\TheoDoiDonGrab',
-  trinhGoCaiDat: 'C:\\Users\\Nguyen Van A\\TheoDoiDonGrab\\Go cai dat.cmd',
-  icon: 'C:\\Users\\Nguyen Van A\\TheoDoiDonGrab\\icon.ico',
+  thuMucCai: 'C:\\Users\\Nguyen Van A\\NotiftestGrab',
+  trinhGoCaiDat: 'C:\\Users\\Nguyen Van A\\NotiftestGrab\\uninstall.cmd',
+  icon: 'C:\\Users\\Nguyen Van A\\NotiftestGrab\\icon.ico',
 };
 
 describe('noiDungRegGoCaiDat', () => {
   it('nhan doi dau gach nguoc trong moi duong dan', () => {
     const reg = noiDungRegGoCaiDat(MAU);
-    expect(reg).toContain('"InstallLocation"="C:\\\\Users\\\\Nguyen Van A\\\\TheoDoiDonGrab"');
+    expect(reg).toContain('"InstallLocation"="C:\\\\Users\\\\Nguyen Van A\\\\NotiftestGrab"');
     expect(reg).toContain(
-      '"DisplayIcon"="C:\\\\Users\\\\Nguyen Van A\\\\TheoDoiDonGrab\\\\icon.ico"',
+      '"DisplayIcon"="C:\\\\Users\\\\Nguyen Van A\\\\NotiftestGrab\\\\icon.ico"',
     );
     // Duong dan don (chua nhan doi) trong file .reg la loi cu phap — hoac
     // `reg import` tu choi, hoac te hon la ghi vao mot duong dan khac.
@@ -37,7 +37,7 @@ describe('noiDungRegGoCaiDat', () => {
     const reg = noiDungRegGoCaiDat(MAU);
     const dong = reg.split('\r\n').find((d) => d.startsWith('"UninstallString"'))!;
     expect(dong).toContain('cmd.exe');
-    expect(dong.indexOf('cmd.exe')).toBeLessThan(dong.indexOf('Go cai dat.cmd'));
+    expect(dong.indexOf('cmd.exe')).toBeLessThan(dong.indexOf('uninstall.cmd'));
   });
 
   it('boc duong dan co dau cach trong dau ngoac kep da thoat', () => {
@@ -60,8 +60,16 @@ describe('noiDungRegGoCaiDat', () => {
     expect(reg).toContain('\r\n');
   });
 
-  it('giu nguyen dau tieng Viet o ten hien thi', () => {
-    expect(noiDungRegGoCaiDat(MAU)).toContain('"DisplayName"="Theo dõi đơn Grab"');
+  it('giu nguyen ten hien thi', () => {
+    expect(noiDungRegGoCaiDat(MAU)).toContain('"DisplayName"="Notiftest-Grab"');
+  });
+
+  // Ten hien thi hien khong co dau, nhung file .reg van phai ghi UTF-16LE. Ghi
+  // UTF-8 thi hom nao them mot chu co dau vao ten se ra ky tu la trong Settings
+  // — va khong ai nghi den viec do khi sua mot chuoi hien thi.
+  it('chiu duoc dau tieng Viet trong ten hien thi', () => {
+    const reg = noiDungRegGoCaiDat({ ...MAU, tenHienThi: 'Notiftest-Grab — theo dõi đơn' });
+    expect(reg).toContain('"DisplayName"="Notiftest-Grab — theo dõi đơn"');
   });
 });
 

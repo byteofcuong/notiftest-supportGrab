@@ -1,5 +1,5 @@
 /**
- * Sinh MOT file cai dat duy nhat: release/CaiDatTheoDoiDonGrab.cmd
+ * Sinh MOT file cai dat duy nhat: release/install.cmd
  *
  * ═══ VI SAO LA .cmd CHU KHONG PHAI .exe ═══
  *
@@ -38,6 +38,7 @@ import {
   ELECTRON_SHA256,
   ELECTRON_URL,
   ELECTRON_VERSION,
+  chiAscii,
   GO_CAI_DAT,
   HUONG_DAN,
   TAO_LOI_TAT,
@@ -76,8 +77,8 @@ cpSync(join(goc, 'config', 'stores.json'), join(tam, 'config', 'stores.json'));
 cpSync(join(goc, '.env.example'), join(tam, '.env.example'));
 cpSync(join(goc, 'build', 'icon.ico'), join(tam, 'icon.ico'));
 writeFileSync(join(tam, 'DOC FILE NAY TRUOC.txt'), HUONG_DAN, 'utf8');
-writeFileSync(join(tam, 'Tao loi tat ra desktop.cmd'), TAO_LOI_TAT, 'latin1');
-writeFileSync(join(tam, 'Go cai dat.cmd'), GO_CAI_DAT, 'latin1');
+writeFileSync(join(tam, 'create-shortcut.cmd'), chiAscii(TAO_LOI_TAT, 'create-shortcut.cmd'), 'latin1');
+writeFileSync(join(tam, 'uninstall.cmd'), chiAscii(GO_CAI_DAT, 'uninstall.cmd'), 'latin1');
 
 // ── 2. Nen lai bang tar.gz ───────────────────────────────────────────────────
 // Dung tar chu khong phai zip vi ca hai dau — luc tao va luc giai — deu dung
@@ -95,8 +96,8 @@ const script = KICH_BAN({ phienBan })
   .replace(/\r?\n/g, '\r\n')
   .concat('\r\n', dongBase64.join('\r\n'), '\r\n');
 
-const dich = join(thuMucRelease, 'CaiDatTheoDoiDonGrab.cmd');
-writeFileSync(dich, script, 'latin1');
+const dich = join(thuMucRelease, 'install.cmd');
+writeFileSync(dich, chiAscii(script, 'install.cmd'), 'latin1');
 
 rmSync(tgz, { force: true });
 rmSync(tam, { recursive: true, force: true });
@@ -111,13 +112,13 @@ console.log(`  tong          : ${(statSync(dich).size / 1024).toFixed(0)} KB`);
 function KICH_BAN({ phienBan: v }) {
   return `@echo off
 rem ===========================================================================
-rem  CAI DAT - THEO DOI DON GRAB  v${v}
+rem  CAI DAT - ${TEN_APP}  v${v}
 rem
 rem  Mot file duy nhat. Bam doi la cai.
 rem
 rem  File nay CHUA phan ma nguon cua cong cu (nhung o cuoi file, dang base64),
 rem  va TAI Electron ${ELECTRON_VERSION} tu trang phat hanh chinh thuc luc cai.
-rem  Co doi chieu SHA-256 truoc khi giai nen — tai mot file thuc thi 150 MB tu
+rem  Co doi chieu SHA-256 truoc khi giai nen: tai mot file thuc thi 150 MB tu
 rem  Internet ve roi chay ma khong kiem tra la mot lo hong that.
 rem ===========================================================================
 setlocal EnableExtensions
@@ -133,7 +134,7 @@ set "TGZ=%TEMP%\\grab-order-watcher-payload.tgz"
 
 echo.
 echo  ================================================
-echo   CAI DAT - THEO DOI DON GRAB
+echo   CAI DAT - ${TEN_APP}
 echo  ================================================
 echo.
 
@@ -191,15 +192,35 @@ if /i not "%SHA_THAT%"=="%SHA_MONG_DOI%" (
 echo        khop
 
 rem --- [3/5] Giai nen --------------------------------------------------------
+rem
+rem PHAI dong app truoc khi giai nen. Windows khoa file .exe va cac DLL da nap
+rem cua tien trinh dang chay, nen tar se bao "Can't unlink already-existing
+rem object: Permission denied" cho tung file mot roi bo cuoc, de lai mot thu
+rem muc NUA CU NUA MOI, tinh trang te hon la khong cai gi ca.
+rem
+rem Da dam phai khi cai de len ban dang chay.
+tasklist /fi "imagename eq %TEN_APP%.exe" 2>nul | find /i "%TEN_APP%.exe" >nul
+if not errorlevel 1 (
+  echo  [3/5] Dong ban dang chay truoc da...
+  taskkill /f /im "%TEN_APP%.exe" >nul 2>&1
+  rem Doi Windows tha khoa file. Giet tien trinh xong khong co nghia la handle
+  rem duoc tha ngay.
+  ping -n 5 127.0.0.1 >nul
+)
+
 echo  [3/5] Giai nen vao %DICH% ...
 if not exist "%DICH%" mkdir "%DICH%" >nul 2>&1
 tar -xf "%ZIP%" -C "%DICH%"
 if errorlevel 1 (
+  echo.
   echo  GIAI NEN THAT BAI.
+  echo  Neu thay "Permission denied": con mot tien trinh dang giu file trong
+  echo    %DICH%
+  echo  Khoi dong lai may roi chay lai file nay.
   goto :loi
 )
 
-rem Doi ten file thuc thi. CHEP chu khong sua, nen hash giu nguyen — do la ly do
+rem Doi ten file thuc thi. CHEP chu khong sua, nen hash giu nguyen, do la ly do
 rem no khong bi Smart App Control chan.
 if exist "%DICH%\\electron.exe" (
   copy /y "%DICH%\\electron.exe" "%DICH%\\%TEN_APP%.exe" >nul
@@ -209,6 +230,15 @@ rem Electron chay man hinh gioi thieu cua no khi khong tim thay app cua minh.
 del /q "%DICH%\\resources\\default_app.asar" >nul 2>&1
 
 rem --- [4/5] Bung phan ma nguon nhung trong file nay -------------------------
+rem
+rem Xoa het .cmd cu truoc da. Tat ca .cmd trong thu muc nay deu do payload sinh
+rem ra, nen xoa di la an toan - va can thiet: giai nen chi GHI DE, khong xoa
+rem file da bien mat khoi payload. Doi ten mot script (vi du "Go cai dat.cmd"
+rem thanh "uninstall.cmd") ma khong xoa thi ban cu nam lai vinh vien, va no la
+rem mot trinh go cai dat NHAM TEN: bam vao la xoa thu muc app nhung de lai muc
+rem tu chay va muc Settings tro vao hu khong.
+del /q "%DICH%\*.cmd" >nul 2>&1
+
 echo  [4/5] Cai dat cong cu...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$d=Get-Content -LiteralPath $env:SELF -Encoding Ascii;" ^
@@ -229,7 +259,7 @@ echo        xong
 
 rem --- [5/5] Loi tat ---------------------------------------------------------
 echo  [5/5] Tao loi tat ngoai desktop...
-call "%DICH%\\Tao loi tat ra desktop.cmd" /nopause >nul 2>&1
+call "%DICH%\\create-shortcut.cmd" /nopause >nul 2>&1
 if errorlevel 1 (
   echo        khong tao duoc - tu mo %DICH% de chay
 ) else (
@@ -244,10 +274,12 @@ echo.
 echo  Thu muc : %DICH%
 echo  Loi tat : ngoai man hinh desktop
 echo.
-echo  CON MOT BUOC NUA truoc khi dung that:
-echo    1. Mo %DICH%
-echo    2. Doi ten  .env.example  thanh  .env  roi dien kho a ccmany
-echo    3. Sua  config\\stores.json  cho dung ma quan
+echo  CON MAY BUOC NUA truoc khi dung that:
+echo    1. Bam loi tat ngoai desktop de mo app
+echo    2. Bam "Mo file cau hinh" - app tu tao .env va mo Notepad,
+echo       dien kho a ccmany vao roi luu lai
+echo    3. Bam "Mo Grab de chon quan" - dang nhap roi bam vao quan cua ban.
+echo       MA QUAN APP TU DOC, khong phai go tay chuoi nao ca.
 echo  Chi tiet trong "DOC FILE NAY TRUOC.txt" o thu muc do.
 echo.
 choice /c YN /n /m "  Mo thu muc do bay gio? (Y/N) "
@@ -273,7 +305,7 @@ echo  Hai cong cu do co san tu Windows 10 phien ban 1803 tro di. May dang
 echo  chay ban Windows cu hon nen khong dung duoc file cai nay.
 echo.
 echo  Cach khac: xin ban dong goi dang THU MUC (khong can tai gi), giai nen
-echo  ra roi chay "Tao loi tat ra desktop.cmd" ben trong.
+echo  ra roi chay "create-shortcut.cmd" ben trong.
 pause
 exit /b 1
 

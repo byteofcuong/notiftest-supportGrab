@@ -27,13 +27,13 @@ import { join } from 'node:path';
  * Co test ghim hai ben khop nhau.
  */
 export const KHOA_GO_CAI_DAT =
-  'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\TheoDoiDonGrab';
+  'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NotiftestGrab';
 
 export interface ThongTinGoCaiDat {
   tenHienThi: string;
   phienBan: string;
   thuMucCai: string;
-  /** Duong dan day du toi "Go cai dat.cmd" trong thu muc cai. */
+  /** Duong dan day du toi "uninstall.cmd" trong thu muc cai. */
   trinhGoCaiDat: string;
   /** Duong dan icon hien canh ten trong Settings. */
   icon: string;

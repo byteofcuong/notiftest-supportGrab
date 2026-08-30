@@ -10,7 +10,7 @@ file `DOC FILE NAY TRUOC.txt` nằm sẵn trong thư mục đã dựng, và
 
 **Không có file `.exe` đơn lẻ để tải về rồi chạy.**
 
-Cái dựng ra là một **thư mục 366 MB, 118 file**. Trong đó `Theo doi don Grab.exe` chiếm 233 MB —
+Cái dựng ra là một **thư mục 366 MB, 118 file**. Trong đó `Notiftest-Grab.exe` chiếm 233 MB —
 nó chính là Chromium, và nó **không chạy được một mình**: thiếu các file `.dll` cùng thư mục
 `resources/` nằm cạnh thì bấm vào không lên gì cả.
 
@@ -79,13 +79,13 @@ không còn `.env` cạnh `.exe` nhưng vẫn đọc được bản đã lưu v�
 
 **`release\portable`** — đúng một thư mục đó, không phải `release`, không phải cả dự án.
 
-Nén **nội dung bên trong** nó, để giải nén ra là thấy `Theo doi don Grab.exe` ngay, không phải
+Nén **nội dung bên trong** nó, để giải nén ra là thấy `Notiftest-Grab.exe` ngay, không phải
 lồng thêm một tầng thư mục nữa.
 
 `build.cmd` hỏi ở cuối và làm đúng như vậy. Muốn làm tay:
 
 ```powershell
-Compress-Archive -Path "release\portable\*" -DestinationPath "release\TheoDoiDonGrab.zip" -Force
+Compress-Archive -Path "release\portable\*" -DestinationPath "release\NotiftestGrab.zip" -Force
 ```
 
 Còn khoảng 150 MB. Chép qua USB, hoặc đẩy lên Drive rồi tải về máy quán — cách nào cũng được,
@@ -105,12 +105,12 @@ Còn khoảng 150 MB. Chép qua USB, hoặc đẩy lên Drive rồi tải về m
 
 ## 3. Trên máy quán
 
-Giải nén ra chỗ **ghi được** — ví dụ `C:\TheoDoiDonGrab`. **Đừng để trong `Program Files`**:
+Giải nén ra chỗ **ghi được** — ví dụ `C:\NotiftestGrab`. **Đừng để trong `Program Files`**:
 thư mục `data/` (nhật ký, bộ nhớ chống trùng, JSON thô của đơn) nằm cạnh file chạy, mà
 `Program Files` chỉ đọc với tài khoản thường.
 
 Rồi làm theo `DOC FILE NAY TRUOC.txt`: đổi `.env.example` thành `.env`, sửa `config/stores.json`,
-chạy `Tao loi tat ra desktop.cmd`, mở app, đăng nhập Grab.
+chạy `create-shortcut.cmd`, mở app, đăng nhập Grab.
 
 ---
 
@@ -150,7 +150,7 @@ với app đặt ở `resources/app/` — chính là cách Electron vốn đư�
 Có một cái bẫy thật đã mắc và đã vá: đăng ký tự-chạy-cùng-Windows lấy tên khoá từ tên nhúng
 trong `.exe` — mà bản này giữ nguyên xi `electron.exe` nên tên đó là "Electron", ra khoá
 `electron.app.Electron`. **Bất kỳ app Electron portable nào khác cũng ghi đè lên đúng khoá ấy.**
-Đã sửa bằng cách truyền `name` tường minh, và kiểm chứng khoá giờ là `Theo doi don Grab`.
+Đã sửa bằng cách truyền `name` tường minh, và kiểm chứng khoá giờ là `Notiftest-Grab`.
 
 ### Khi nào thì nên ký số
 
@@ -190,12 +190,12 @@ sở thích phiên bản — nó là ràng buộc của môi trường.
 Trên máy dựng, với Smart App Control **đang bật**:
 
 - Dựng lại từ thư mục rỗng bằng `npm run portable` — chạy trọn, không lỗi
-- Chạy `Theo doi don Grab.exe` — **không bị chặn**
+- Chạy `Notiftest-Grab.exe` — **không bị chặn**
 - Đọc đúng `.env` và `config/stores.json` nằm cạnh `.exe`
 - Giữ được phiên Grab (`Kiem tra Grab OK`), poller chạy
 - `--tu-chay` → tiến trình sống, không hiện cửa sổ, vào thẳng khay
-- `Tao loi tat ra desktop.cmd` → lối tắt đúng target, đúng icon
-- Khoá tự-chạy ghi đúng tên `Theo doi don Grab`
+- `create-shortcut.cmd` → lối tắt đúng target, đúng icon
+- Khoá tự-chạy ghi đúng tên `Notiftest-Grab`
 - `build.cmd` chạy trọn 5 bước, thoát mã 0, tạo đúng lối tắt, nén ra zip sạch
 - Và nó **đã thật sự chặn một lần**: khi bộ chạy test hỏng, nó dừng ở bước 3 thay vì đóng gói
 

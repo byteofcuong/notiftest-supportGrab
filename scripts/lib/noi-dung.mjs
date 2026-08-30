@@ -6,10 +6,10 @@
  * doc — cho te nhat de co mot cau sai.
  */
 
-export const TEN_APP = 'Theo doi don Grab';
+export const TEN_APP = 'Notiftest-Grab';
 
 /** Ten thu muc cai mac dinh. Khong dau, khong dau cach, cho de go trong terminal. */
-export const TEN_THU_MUC = 'TheoDoiDonGrab';
+export const TEN_THU_MUC = 'NotiftestGrab';
 
 /**
  * Ten thu muc du lieu trong %APPDATA% — phai trung voi app.setName() o main.ts.
@@ -29,7 +29,7 @@ export const TEN_DU_LIEU = 'grab-order-watcher';
  * khong co cach nao don muc do tu giao dien Settings. Co test ghim hai ben.
  */
 export const KHOA_GO_CAI_DAT =
-  'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\TheoDoiDonGrab';
+  'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NotiftestGrab';
 
 /** Phien ban Electron duoc ghim. Doi so nay thi PHAI doi ca SHA256 ben duoi. */
 export const ELECTRON_VERSION = '44.0.0';
@@ -59,7 +59,7 @@ powershell -NoProfile -Command ^
   "$s.TargetPath='%THUMUC%${TEN_APP}.exe';" ^
   "$s.WorkingDirectory='%THUMUC%';" ^
   "$s.IconLocation='%THUMUC%icon.ico';" ^
-  "$s.Description='Theo doi don Grab Merchant va day sang ccmany';" ^
+  "$s.Description='Notiftest-Grab: theo doi don Grab Merchant, day sang ccmany';" ^
   "$s.Save()"
 echo Da tao loi tat ngoai Desktop.
 if /i "%~1"=="/nopause" goto :eof
@@ -67,11 +67,11 @@ pause
 `;
 
 // String.raw chu khong phai template thuong: van ban nay day duong dan Windows.
-// Trong template thuong, `C:\TheoDoiDonGrab` bi JS hieu la escape khong hop le
-// va nuot mat dau `\`, ra `C:TheoDoiDonGrab` — mot huong dan sai ma van trong
+// Trong template thuong, `C:\NotiftestGrab` bi JS hieu la escape khong hop le
+// va nuot mat dau `\`, ra `C:NotiftestGrab` — mot huong dan sai ma van trong
 // nhu that. (Da in ra file roi moi phat hien.)
-export const HUONG_DAN = String.raw`THEO DOI DON GRAB
-==================
+export const HUONG_DAN = String.raw`NOTIFTEST-GRAB
+==============
 
 Cong cu nay canh trang don hang Grab Merchant va day don moi sang ccmany.
 
@@ -93,7 +93,7 @@ CAN LAM GI
    MA QUAN GRAB THI KHONG PHAI DIEN. App tu doc no tu trang Grab, xem buoc 3.
 
 2. Bam loi tat ngoai desktop de mo app.
-   (Neu chua co loi tat: chay "Tao loi tat ra desktop.cmd" trong thu muc nay.)
+   (Neu chua co loi tat: chay "create-shortcut.cmd" trong thu muc nay.)
 
 3. Lan dau app hien khung "Chua chon quan":
 
@@ -140,8 +140,8 @@ GO CAI DAT
 Ba cach, cach nao cung duoc:
 
    - Mo app -> keo xuong cuoi -> nut "Go cai dat khoi may nay"
-   - Settings -> Apps -> Installed apps -> "Theo doi don Grab" -> Uninstall
-   - Hoac bam doi vao  "Go cai dat.cmd"  trong thu muc nay
+   - Settings -> Apps -> Installed apps -> "Notiftest-Grab" -> Uninstall
+   - Hoac bam doi vao  "uninstall.cmd"  trong thu muc nay
      (dung cach nay khi app khong mo len duoc nua)
 
 Ca ba deu hoi truoc mot cau: CO GIU LAI phien dang nhap Grab va cau hinh khong.
@@ -258,7 +258,7 @@ rem ---------------------------------------------------------------------------
 :lam
 title Go cai dat %TENAPP%
 
-rem RAO AN TOAN — dung sua dong nay.
+rem RAO AN TOAN - dung sua dong nay.
 rem Ngay ben duoi la "rmdir /s /q %APPDIR%". Neu APPDIR tro nham cho (bien rong,
 rem duong dan cu, ai do goi script voi tham so bay ba) thi do la mot lenh xoa
 rem sach thu muc ma nguoi dung khong he yeu cau. File main.js chi ton tai trong
@@ -277,7 +277,7 @@ echo.
 echo  Dang go cai dat %TENAPP%...
 echo.
 
-rem [1] Doi app tu thoat — no dang ghi phien dang nhap xuong dia. Qua 10 giay
+rem [1] Doi app tu thoat, no dang ghi phien dang nhap xuong dia. Qua 10 giay
 rem     ma chua xong thi tat cung, vi con tien trinh song la con khoa file .exe.
 echo   [1/5] Dong app...
 set /a n=0
@@ -292,13 +292,13 @@ goto :doi
 :dadong
 
 rem [2] Muc tu chay cung Windows. Bo sot cai nay thi moi lan bat may Windows
-rem     lai di goi mot file da bi xoa — khong hai gi nhung ban, va khong ai
+rem     lai di goi mot file da bi xoa. Khong hai gi nhung ban, va khong ai
 rem     tren may quan biet duong ma don.
 echo   [2/5] Bo tu chay cung Windows va muc trong Settings...
 reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "%TENAPP%" /f >nul 2>&1
 
 rem Muc trong Settings -> Apps. Bo sot thi Windows van liet ke app o do, bam
-rem Uninstall lai chay mot file da bi xoa — va khong co cach nao go cai muc do
+rem Uninstall lai chay mot file da bi xoa, va khong co cach nao go cai muc do
 rem ra tu giao dien Settings.
 reg delete "%KHOAGO%" /f >nul 2>&1
 
@@ -340,7 +340,31 @@ echo.
 ping -n 8 127.0.0.1 >nul
 
 rem File nay dang nam o %TEMP% va dang duoc chinh cmd.exe doc do. Lenh (goto)
-rem lam cmd nhay ra khoi script va tha handle, roi moi den luot del — cach duy
+rem lam cmd nhay ra khoi script va tha handle, roi moi den luot del. Cach duy
 rem nhat de mot file .cmd tu xoa duoc chinh no.
 (goto) 2>nul & del /f /q "%~f0"
 `;
+
+/**
+ * Kiem tra mot doan .cmd chi gom ky tu ASCII, va noi ro dong nao neu khong.
+ *
+ * File .cmd duoc ghi bang 'latin1'. Node ma hoa latin1 bang cach lay
+ * `charCode & 0xFF`, nen mot dau gach dai (U+2014) khong bao loi ma bien lang
+ * thanh byte 0x14 — mot KY TU DIEU KHIEN nam giua file gui cho quan. Nam trong
+ * `rem` thi khong sao, roi vao mot dong lenh thi hong ma khong hieu vi sao.
+ *
+ * Da co ba dong nhu vay lot vao ban phat hanh truoc khi co ham nay.
+ */
+export function chiAscii(vanBan, ten) {
+  const dong = vanBan.split('\n');
+  for (let i = 0; i < dong.length; i++) {
+    const xau = [...dong[i]].find((c) => c.charCodeAt(0) > 126);
+    if (xau !== undefined) {
+      throw new Error(
+        `${ten}: dong ${i + 1} co ky tu ngoai ASCII ${JSON.stringify(xau)} - ` +
+          `ghi latin1 se bien no thanh byte rac:\n  ${dong[i].trim()}`,
+      );
+    }
+  }
+  return vanBan;
+}

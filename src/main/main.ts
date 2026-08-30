@@ -59,11 +59,31 @@ if (process.env.ELECTRON_RUN_AS_NODE) {
 // Electron dung ten mac dinh "Electron", va ca phien Grab lan cau hinh se nam o
 // AppData/Roaming/Electron/ — dung chung voi moi app Electron khac chay o che do
 // phat trien, va se DOI CHO khi dong goi thanh .exe, tuc la mat het sau khi cai.
+//
+// CO Y GIU TEN CU khi app doi ten hien thi thanh Notiftest-Grab. Day khong phai
+// ten nguoi dung nhin thay (ten do o TEN_APP), ma la DINH DANH THU MUC DU LIEU.
+// Doi no la doi luon %APPDATA%\grab-order-watcher\ sang mot thu muc khac, tuc
+// la mat phien dang nhap Grab va mat ca ma quan da chon — nguoi dung phai dang
+// nhap lai va chon quan lai, ma khong hieu vi sao chi doi cai ten.
 app.setName('grab-order-watcher');
 
 // Goc du an. Khi da dong goi thanh .exe thi __dirname nam trong asar, nen lay
 // thu muc chua file thuc thi de .env va config/ van sua duoc sau khi cai.
 const ROOT = app.isPackaged ? path.dirname(app.getPath('exe')) : path.resolve(__dirname, '../..');
+
+/**
+ * Icon cua cua so — thanh tieu de va nut tren thanh tac vu.
+ *
+ * PHAI dat tuong minh. Ban portable chay bang chinh electron.exe khong sua mot
+ * byte nao (do la dieu kien de Smart App Control cho chay), nen file thuc thi
+ * KHONG nhung duoc icon rieng. Khong dat o day thi cua so mang icon Electron
+ * mac dinh, va logo chi hien tren moi cai loi tat ngoai desktop.
+ *
+ * Ban dong goi: icon.ico nam canh .exe. Ban dev: o build/ sau khi chay
+ * `npm run build:icon`. Thieu ca hai thi Electron tu lui ve icon mac dinh,
+ * khong nem loi — nen khong can chan gi them.
+ */
+const ICON = app.isPackaged ? join(ROOT, 'icon.ico') : join(ROOT, 'build', 'icon.ico');
 
 // Cau hinh duoc gieo sang thu muc du lieu nguoi dung de lan cap nhat app (chep
 // de nguyen ca thu muc) khong xoa mat no. Xem chuanBiCauHinh().
@@ -206,7 +226,7 @@ function moFileCauHinh(): void {
 }
 
 /**
- * Go cai dat: hoi cho ro roi giao viec cho "Go cai dat.cmd".
+ * Go cai dat: hoi cho ro roi giao viec cho "uninstall.cmd".
  *
  * App KHONG TU XOA MINH DUOC. Windows khoa file .exe dang chay va cac DLL da
  * nap, nen moi co gang xoa thu muc cai tu ben trong deu ket thuc bang mot ban
@@ -225,15 +245,15 @@ async function goCaiDat(): Promise<{ ok: boolean; loi?: string }> {
     };
   }
 
-  const script = join(ROOT, 'Go cai dat.cmd');
+  const script = join(ROOT, 'uninstall.cmd');
   if (!existsSync(script)) {
-    return { ok: false, loi: `Khong thay "Go cai dat.cmd" trong ${ROOT}` };
+    return { ok: false, loi: `Khong thay "uninstall.cmd" trong ${ROOT}` };
   }
 
   const opts: Electron.MessageBoxOptions = {
     type: 'warning',
     title: 'Gỡ cài đặt',
-    message: 'Gỡ "Theo dõi đơn Grab" khỏi máy này?',
+    message: 'Gỡ "Notiftest-Grab" khỏi máy này?',
     detail: [
       'Sẽ xoá:',
       `    •  thư mục cài đặt   ${ROOT}`,
@@ -315,7 +335,8 @@ function createControlWindow(): void {
   controlWindow = new BrowserWindow({
     width: 720,
     height: 520,
-    title: 'Theo doi don Grab',
+    title: 'Notiftest-Grab',
+    icon: ICON,
     // Tu chay cung Windows thi vao thang khay, khong dap cua so vao mat nguoi
     // ta moi lan bat may — lam the som muon cung co nguoi tat han app di.
     show: !TU_CHAY,
@@ -472,6 +493,7 @@ app.whenReady().then(async () => {
     merchantID: store?.grabMerchantID ?? null,
     logger,
     onHidden: moBangDieuKhien,
+    icon: ICON,
   });
   await grabWindow.open();
   logger.info('Cua so Grab da san sang', {
@@ -571,10 +593,10 @@ function dangKyVaoSettingsWindows(): void {
   if (!app.isPackaged) return;
   dangKyGoCaiDat(
     {
-      tenHienThi: 'Theo dõi đơn Grab',
+      tenHienThi: 'Notiftest-Grab',
       phienBan: app.getVersion(),
       thuMucCai: ROOT,
-      trinhGoCaiDat: join(ROOT, 'Go cai dat.cmd'),
+      trinhGoCaiDat: join(ROOT, 'uninstall.cmd'),
       icon: join(ROOT, 'icon.ico'),
     },
     (thong, err) => logger.warn(thong, err),
@@ -603,7 +625,7 @@ function capNhatTuChayCungWindows(): void {
       // `electron.app.Electron`. Bat ky app Electron portable nao khac cung se
       // ghi de len dung khoa do, va ta mat tu chay ma khong hay biet.
       // (Da thay that: Notion dang o `electron.app.Notion` ngay canh.)
-      name: 'Theo doi don Grab',
+      name: 'Notiftest-Grab',
       // Danh dau de lan chay do biet la may tu bat, ma vao thang khay.
       args: ['--tu-chay'],
     });

@@ -28,6 +28,8 @@ export interface GrabWindowOptions {
   logger: Logger;
   /** Goi khi cua so Grab an di, de dua nguoi dung ve bang dieu khien. */
   onHidden?: () => void;
+  /** Duong dan icon.ico. Bo trong thi cua so mang icon Electron mac dinh. */
+  icon?: string;
 }
 
 export class GrabWindow {
@@ -106,6 +108,10 @@ export class GrabWindow {
       height: 860,
       show: false, // an cho toi khi can
       title: 'Grab Merchant',
+      // Cua so nay nguoi dung co mo ra that (de dang nhap Grab), nen no cung
+      // phai mang logo — khong thi tren thanh tac vu no la mot cua so Electron
+      // vo danh nam canh app.
+      ...(this.options.icon ? { icon: this.options.icon } : {}),
       webPreferences: {
         partition: PARTITION,
         // Chromium bop co hen gio cua tab chay nen xuong ~1 lan/phut. Vong lap

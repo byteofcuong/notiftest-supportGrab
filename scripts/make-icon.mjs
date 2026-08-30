@@ -1,27 +1,245 @@
 /**
- * Sinh build/icon.ico tu code, khong dung file anh nguon.
+ * Sinh build/icon.ico tu assets/logo.png — dung logo cua notiftest.
  *
- * Vi sao ve bang code: mot file .ico nhi phan nam trong repo thi khong ai doc
- * duoc, khong ai sua duoc, va khong ai biet no tu dau ra. Ve bang code thi doi
- * mau hay doi hinh chi la sua vai dong roi chay lai.
+ * Truoc day file nay VE icon bang code, voi ly do "khong giu anh nhi phan trong
+ * repo". Ly do do khong con dung nua: cong cu Windows va app Android la mot san
+ * pham, phai mang cung mot logo, ma logo do la mot file anh co san chu khong
+ * phai thu ve lai duoc bang vai dong ham toan.
  *
- * Hinh: hinh vuong bo goc mau xanh Grab, ben trong la con mat trang — cong cu
- * nay "theo doi" don, va con mat con doc duoc o co 16px, khac voi chu.
+ * Nguon:  notiftest/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png  (192x192)
+ * Doi logo thi chep de len assets/logo.png roi chay lai script nay.
+ *
+ * Van khong dung thu vien ngoai: PNG nguon la RGBA 8-bit khong xen ke, dinh
+ * dang de giai ma nhat, va zlib thi Node co san.
  *
  *   node scripts/make-icon.mjs
  */
 
 import zlib from 'node:zlib';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const XANH = [0x00, 0xb1, 0x4f];
-const TRANG = [0xff, 0xff, 0xff];
 /** Cac co Windows thuc su dung: khay, thanh tac vu, cua so, Explorer. */
 const CAC_CO = [16, 32, 48, 64, 128, 256];
 
-// ── PNG ──────────────────────────────────────────────────────────────────────
+/**
+ * Ban kinh bo goc, tinh theo ti le canh.
+ *
+ * assets/logo.png la mot THE VUONG DAC — do alpha o ca vien deu ~150, ruot 255,
+ * khong he bo goc. Tren dien thoai no van trong tron vi Android tu ap mat na
+ * luc hien thi; Windows thi khong lam vay, nen bo qua buoc nay la ra mot o vuong
+ * kem giua cac icon bo goc khac tren thanh tac vu.
+ */
+const BAN_KINH_GOC = 0.22;
+
+// ── Doc PNG ──────────────────────────────────────────────────────────────────
+
+/** Bo loc theo dong cua PNG. Xem muc 9 cua dac ta PNG. */
+function boLoc(loai, dong, truoc, bpp) {
+  for (let i = 0; i < dong.length; i++) {
+    const a = i >= bpp ? dong[i - bpp] : 0; // trai
+    const b = truoc[i]; // tren
+    const c = i >= bpp ? truoc[i - bpp] : 0; // cheo tren-trai
+    switch (loai) {
+      case 0:
+        break;
+      case 1:
+        dong[i] = (dong[i] + a) & 0xff;
+        break;
+      case 2:
+        dong[i] = (dong[i] + b) & 0xff;
+        break;
+      case 3:
+        dong[i] = (dong[i] + ((a + b) >> 1)) & 0xff;
+        break;
+      case 4: {
+        const p = a + b - c;
+        const pa = Math.abs(p - a);
+        const pb = Math.abs(p - b);
+        const pc = Math.abs(p - c);
+        const pred = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+        dong[i] = (dong[i] + pred) & 0xff;
+        break;
+      }
+      default:
+        throw new Error(`Bo loc PNG la: ${loai}`);
+    }
+  }
+}
+
+/**
+ * Giai ma PNG RGBA 8-bit khong xen ke. Co y KHONG lam tong quat: nhan dung mot
+ * dinh dang roi bao loi ro rang, hon la doan mo ho voi cac dinh dang khac.
+ */
+function docPng(buf) {
+  if (buf.readUInt32BE(0) !== 0x89504e47) throw new Error('assets/logo.png khong phai file PNG');
+  const rong = buf.readUInt32BE(16);
+  const cao = buf.readUInt32BE(20);
+  const sauBit = buf[24];
+  const loaiMau = buf[25];
+  const xenKe = buf[28];
+  if (sauBit !== 8 || loaiMau !== 6 || xenKe !== 0) {
+    throw new Error(
+      `Chi doc duoc PNG RGBA 8-bit khong xen ke; file nay: sau=${sauBit} loai=${loaiMau} xenke=${xenKe}`,
+    );
+  }
+
+  const cacIdat = [];
+  let o = 8;
+  while (o < buf.length) {
+    const len = buf.readUInt32BE(o);
+    const loai = buf.toString('ascii', o + 4, o + 8);
+    if (loai === 'IDAT') cacIdat.push(buf.subarray(o + 8, o + 8 + len));
+    if (loai === 'IEND') break;
+    o += 12 + len;
+  }
+
+  const tho = zlib.inflateSync(Buffer.concat(cacIdat));
+  const bpp = 4;
+  const buocDong = rong * bpp;
+  const diem = Buffer.alloc(cao * buocDong);
+  let truoc = Buffer.alloc(buocDong);
+  for (let y = 0; y < cao; y++) {
+    const nguon = 1 + y * (buocDong + 1);
+    const dong = Buffer.from(tho.subarray(nguon, nguon + buocDong));
+    boLoc(tho[nguon - 1], dong, truoc, bpp);
+    dong.copy(diem, y * buocDong);
+    truoc = dong;
+  }
+  return { rong, cao, diem };
+}
+
+// ── Doi co ───────────────────────────────────────────────────────────────────
+
+/**
+ * Doi co anh, co NHAN TRUOC ALPHA.
+ *
+ * Bo buoc nhan truoc thi cac diem trong suot o goc bo tron van dong gop mau cua
+ * chung (thuong la den) vao trung binh, va vien logo se co mot quang toi mo —
+ * chi thay ro o co 16px, dung cai co ma nguoi dung nhin nhieu nhat.
+ *
+ * Thu nho thi lay trung binh theo dien tich (chong rang cua); phong to thi noi
+ * suy song tuyen (khoi vo o vuong).
+ */
+function doiCo(anh, dich) {
+  const { rong, cao, diem } = anh;
+  const ra = Buffer.alloc(dich * dich * 4);
+  const tiLe = rong / dich;
+  const thuNho = dich < rong;
+
+  for (let y = 0; y < dich; y++) {
+    for (let x = 0; x < dich; x++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 0;
+
+      if (thuNho) {
+        const x0 = Math.floor(x * tiLe);
+        const x1 = Math.min(Math.ceil((x + 1) * tiLe), rong);
+        const y0 = Math.floor(y * tiLe);
+        const y1 = Math.min(Math.ceil((y + 1) * tiLe), cao);
+        let n = 0;
+        for (let sy = y0; sy < y1; sy++) {
+          for (let sx = x0; sx < x1; sx++) {
+            const i = (sy * rong + sx) * 4;
+            const al = diem[i + 3] / 255;
+            r += diem[i] * al;
+            g += diem[i + 1] * al;
+            b += diem[i + 2] * al;
+            a += diem[i + 3];
+            n += 1;
+          }
+        }
+        r /= n;
+        g /= n;
+        b /= n;
+        a /= n;
+      } else {
+        const fx = (x + 0.5) * tiLe - 0.5;
+        const fy = (y + 0.5) * tiLe - 0.5;
+        const x0 = Math.max(Math.floor(fx), 0);
+        const y0 = Math.max(Math.floor(fy), 0);
+        const x1 = Math.min(x0 + 1, rong - 1);
+        const y1 = Math.min(y0 + 1, cao - 1);
+        const tx = Math.min(Math.max(fx - x0, 0), 1);
+        const ty = Math.min(Math.max(fy - y0, 0), 1);
+        for (const [sx, sy, w] of [
+          [x0, y0, (1 - tx) * (1 - ty)],
+          [x1, y0, tx * (1 - ty)],
+          [x0, y1, (1 - tx) * ty],
+          [x1, y1, tx * ty],
+        ]) {
+          const i = (sy * rong + sx) * 4;
+          const al = diem[i + 3] / 255;
+          r += diem[i] * al * w;
+          g += diem[i + 1] * al * w;
+          b += diem[i + 2] * al * w;
+          a += diem[i + 3] * w;
+        }
+      }
+
+      // Bo nhan truoc de tra ve RGBA thuong.
+      const i = (y * dich + x) * 4;
+      const al = a / 255;
+      ra[i] = al > 0 ? Math.min(Math.round(r / al), 255) : 0;
+      ra[i + 1] = al > 0 ? Math.min(Math.round(g / al), 255) : 0;
+      ra[i + 2] = al > 0 ? Math.min(Math.round(b / al), 255) : 0;
+      ra[i + 3] = Math.round(a);
+    }
+  }
+  return ra;
+}
+
+// ── Mat na bo goc ────────────────────────────────────────────────────────────
+
+/** Khoang cach am nghia la nam trong hinh vuong bo goc. */
+function khoangCachToiVien(x, y, size, r) {
+  const dx = Math.max(Math.abs(x - size / 2) - (size / 2 - r), 0);
+  const dy = Math.max(Math.abs(y - size / 2) - (size / 2 - r), 0);
+  return Math.hypot(dx, dy) - r;
+}
+
+/**
+ * Do phu 0..1 cua tung diem. Lay mau 4x4 de duong cong o goc khong bi rang cua
+ * — o co 16px thi mot buoc nhay mot diem la thay ro.
+ */
+function matNaBoGoc(size) {
+  const MAU = 4;
+  const r = size * BAN_KINH_GOC;
+  const na = new Float32Array(size * size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let trong = 0;
+      for (let sy = 0; sy < MAU; sy++) {
+        for (let sx = 0; sx < MAU; sx++) {
+          const px = x + (sx + 0.5) / MAU;
+          const py = y + (sy + 0.5) / MAU;
+          if (khoangCachToiVien(px, py, size, r) <= 0) trong += 1;
+        }
+      }
+      na[y * size + x] = trong / (MAU * MAU);
+    }
+  }
+  return na;
+}
+
+/**
+ * THAY alpha bang mat na, khong phai nhan vao.
+ *
+ * Nhan vao thi cai vien ~150 cua anh nguon con nguyen, va vien icon se co mot
+ * quang mo nhat quanh ca bon canh. Anh nguon la the dac nen mau RGB o moi diem
+ * deu dung; hinh dang cua icon do mat na quyet dinh, khong phai do alpha cua
+ * file nguon.
+ */
+function apMatNaBoGoc(rgba, size) {
+  const na = matNaBoGoc(size);
+  for (let i = 0; i < size * size; i++) rgba[i * 4 + 3] = Math.round(na[i] * 255);
+  return rgba;
+}
+
+// ── Ghi PNG ──────────────────────────────────────────────────────────────────
 
 function crc32(buf) {
   let crc = 0xffffffff;
@@ -42,18 +260,13 @@ function chunk(type, data) {
   return Buffer.concat([len, thanPhan, crc]);
 }
 
-function png(size, pixel) {
+function ghiPng(size, rgba) {
   const raw = Buffer.alloc(size * (size * 4 + 1));
   let p = 0;
   for (let y = 0; y < size; y++) {
     raw[p++] = 0; // filter: none
-    for (let x = 0; x < size; x++) {
-      const [r, g, b, a] = pixel(x, y, size);
-      raw[p++] = r;
-      raw[p++] = g;
-      raw[p++] = b;
-      raw[p++] = a;
-    }
+    rgba.copy(raw, p, y * size * 4, (y + 1) * size * 4);
+    p += size * 4;
   }
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0);
@@ -66,60 +279,6 @@ function png(size, pixel) {
     chunk('IDAT', zlib.deflateSync(raw, { level: 9 })),
     chunk('IEND', Buffer.alloc(0)),
   ]);
-}
-
-// ── Hinh ─────────────────────────────────────────────────────────────────────
-
-/** Hinh vuong bo goc: khoang cach am nghia la nam trong hinh. */
-function trongVuongBoGoc(x, y, size, banKinhGoc) {
-  const dx = Math.max(Math.abs(x - size / 2) - (size / 2 - banKinhGoc), 0);
-  const dy = Math.max(Math.abs(y - size / 2) - (size / 2 - banKinhGoc), 0);
-  return Math.hypot(dx, dy) - banKinhGoc;
-}
-
-/**
- * Con mat: phan giao cua hai duong tron, mot o tren mot o duoi.
- *
- * Cach nay cho ra hinh hanh nhan co dau nhon hai ben, giong mat that hon la
- * mot hinh elip — va o co 16px thi cai dau nhon do la thu giup nhan ra no.
- */
-function trongMat(x, y, size) {
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = size * 0.44;
-  const lech = size * 0.28;
-  const tren = Math.hypot(x - cx, y - (cy + lech)) - r;
-  const duoi = Math.hypot(x - cx, y - (cy - lech)) - r;
-  return Math.max(tren, duoi);
-}
-
-function trongConNguoi(x, y, size) {
-  return Math.hypot(x - size / 2, y - size / 2) - size * 0.135;
-}
-
-/** Lay mau 4x4 moi diem de vien khong bi rang cua. */
-function toMau(x, y, size) {
-  const MAU = 4;
-  let trongNen = 0;
-  let trongTrang = 0;
-
-  for (let sy = 0; sy < MAU; sy++) {
-    for (let sx = 0; sx < MAU; sx++) {
-      const px = x + (sx + 0.5) / MAU;
-      const py = y + (sy + 0.5) / MAU;
-      if (trongVuongBoGoc(px, py, size, size * 0.22) <= 0) trongNen += 1;
-      // Trang = long trang mat, TRU di con nguoi.
-      if (trongMat(px, py, size) <= 0 && trongConNguoi(px, py, size) > 0) trongTrang += 1;
-    }
-  }
-
-  const tong = MAU * MAU;
-  const alpha = Math.round((trongNen / tong) * 255);
-  if (alpha === 0) return [0, 0, 0, 0];
-
-  const tiLeTrang = trongTrang / tong;
-  const mau = [0, 1, 2].map((i) => Math.round(XANH[i] * (1 - tiLeTrang) + TRANG[i] * tiLeTrang));
-  return [mau[0], mau[1], mau[2], alpha];
 }
 
 // ── ICO ──────────────────────────────────────────────────────────────────────
@@ -159,12 +318,20 @@ function ico(cacAnh) {
 // ── Chay ─────────────────────────────────────────────────────────────────────
 
 const goc = join(dirname(fileURLToPath(import.meta.url)), '..');
+const nguon = join(goc, 'assets', 'logo.png');
+const logo = docPng(readFileSync(nguon));
+
 const thuMuc = join(goc, 'build');
 mkdirSync(thuMuc, { recursive: true });
 
-const cacAnh = CAC_CO.map((size) => ({ size, data: png(size, toMau) }));
+// Cat goc SAU khi doi co, khong phai truoc: lam o anh 192px roi thu nho thi
+// duong cong bi lay mau lai lan hai va nhoe ra o cac co nho.
+const cacAnh = CAC_CO.map((size) => ({
+  size,
+  data: ghiPng(size, apMatNaBoGoc(doiCo(logo, size), size)),
+}));
 const duongDan = join(thuMuc, 'icon.ico');
 writeFileSync(duongDan, ico(cacAnh));
 
-console.log(`da tao ${duongDan}`);
+console.log(`da tao ${duongDan}  (nguon: assets/logo.png ${logo.rong}x${logo.cao})`);
 for (const { size, data } of cacAnh) console.log(`  ${size}x${size}: ${data.length} byte`);

@@ -45,8 +45,12 @@ cài NSIS tự sinh ra rồi chạy cũng chung số phận, nên **dựng file 
 chạy nó.
 
 Dòng thứ ba là lối thoát: đổi tên không đổi hash. `scripts/make-portable.mjs` chép nguyên xi file
-thực thi rồi chỉ đổi tên, nên qua được. Đánh đổi: file `.exe` không có icon riêng — nhưng lối tắt
-ngoài desktop vẫn mang icon của công cụ, mà đó mới là chỗ người dùng nhìn vào.
+thực thi rồi chỉ đổi tên, nên qua được.
+
+Đánh đổi: file `.exe` không nhúng được icon riêng. Bù lại ở ba chỗ người dùng thật sự nhìn:
+lối tắt ngoài desktop (`.lnk` mang icon), cửa sổ app và nút trên thanh tác vụ (đặt bằng
+`BrowserWindow({ icon })` trong [main.ts](../src/main/main.ts)), và biểu tượng khay. Chỉ khi
+mở Explorer nhìn thẳng vào file `.exe` mới thấy icon Electron mặc định.
 
 </details>
 
@@ -112,10 +116,10 @@ Có hai dạng. Bước 0 quyết định dùng dạng nào.
 **Dạng thư mục — dùng cái này** (`npm run portable` → `release/portable/`)
 
 1. Chép cả thư mục sang máy quán, đặt ở chỗ **tài khoản đó ghi được** — ví dụ
-   `C:\TheoDoiDonGrab`. Đừng để trong `Program Files`
-2. Chạy `Tao loi tat ra desktop.cmd` trong thư mục đó — nó tạo lối tắt kèm icon riêng
+   `C:\NotiftestGrab`. Đừng để trong `Program Files`
+2. Chạy `create-shortcut.cmd` trong thư mục đó — nó tạo lối tắt kèm icon riêng
 
-**Dạng file cài đặt** (`npm run dist` → `TheoDoiDonGrab-Setup-x.y.z.exe`)
+**Dạng file cài đặt** (`npm run dist` → `NotiftestGrab-Setup-x.y.z.exe`)
 
 Chỉ dùng được khi bước 0 cho kết quả `TAT`, **và** phải dựng trên máy cũng có Smart App Control
 tắt. Đổi lại thì có Start menu và trình gỡ cài đặt.
@@ -217,9 +221,9 @@ và bạn biết ngay là trượt ở đâu.
 Ba đường vào, dùng cái nào cũng ra cùng một kết quả:
 
 - Mở app → kéo xuống cuối bảng điều khiển → **Gỡ cài đặt khỏi máy này**
-- **Settings → Apps → Installed apps → "Theo dõi đơn Grab" → Uninstall** — chỗ người dùng
+- **Settings → Apps → Installed apps → "Notiftest-Grab" → Uninstall** — chỗ người dùng
   Windows theo phản xạ đi tìm
-- Hoặc bấm đúp **`Go cai dat.cmd`** trong thư mục cài — dùng khi app không mở lên được nữa
+- Hoặc bấm đúp **`uninstall.cmd`** trong thư mục cài — dùng khi app không mở lên được nữa
 
 Cả ba đều hỏi một câu trước khi làm: **có giữ lại phiên đăng nhập Grab không.**
 
@@ -234,7 +238,7 @@ Cả ba đều hỏi một câu trước khi làm: **có giữ lại phiên đă
 > còn tồn tại, và trong Settings vẫn còn một mục ma mà bấm Uninstall thì không có gì xảy ra
 > — cũng không có cách nào dọn nó từ giao diện Settings.
 
-App tự ghi mục Settings mỗi lần khởi động (`HKCU\...\Uninstall\TheoDoiDonGrab`, không cần
+App tự ghi mục Settings mỗi lần khởi động (`HKCU\...\Uninstall\NotiftestGrab`, không cần
 quyền quản trị). Cố ý ghi lại mỗi lần: chép thư mục app sang chỗ khác thì đường dẫn cũ thành
 rác, ghi đè mỗi lần thì nó tự sửa.
 
@@ -245,7 +249,7 @@ Windows khoá file `.exe` đang chạy và các DLL đã nạp. Xoá thư mục 
 xoá được gần hết rồi kẹt lại đúng file thực thi — để lại một bản cài không chạy được mà vẫn
 chiếm chỗ, và người dùng không hiểu chuyện gì vừa xảy ra.
 
-Nên cái nút trong app chỉ làm ba việc: hỏi, đẩy `Go cai dat.cmd` ra `%TEMP%` (ra ngoài thư mục
+Nên cái nút trong app chỉ làm ba việc: hỏi, đẩy `uninstall.cmd` ra `%TEMP%` (ra ngoài thư mục
 sắp bị xoá), chạy nó rồi thoát. Script tự đợi tiến trình app chết hẳn — tối đa 10 giây, quá
 thì tắt cứng — rồi mới bắt đầu xoá. Cùng lý do đó, script cũng tự chép mình sang `%TEMP%` khi
 người dùng bấm đúp vào nó từ trong thư mục cài: `cmd.exe` giữ handle lên chính file `.cmd`
