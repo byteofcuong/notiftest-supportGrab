@@ -30,96 +30,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-const TEN_APP = 'Theo doi don Grab';
-
-const TAO_LOI_TAT = `@echo off
-rem Tao loi tat ra Desktop, mang icon rieng cua cong cu.
-rem Tham so /nopause: bo buoc doi bam phim, de script khac goi duoc.
-setlocal
-set "THUMUC=%~dp0"
-powershell -NoProfile -Command ^
-  "$s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop')+'\\${TEN_APP}.lnk');" ^
-  "$s.TargetPath='%THUMUC%${TEN_APP}.exe';" ^
-  "$s.WorkingDirectory='%THUMUC%';" ^
-  "$s.IconLocation='%THUMUC%icon.ico';" ^
-  "$s.Description='Theo doi don Grab Merchant va day sang ccmany';" ^
-  "$s.Save()"
-echo Da tao loi tat ngoai Desktop.
-if /i "%~1"=="/nopause" goto :eof
-pause
-`;
-
-// String.raw chu khong phai template thuong: van ban nay day duong dan Windows.
-// Trong template thuong, `C:\TheoDoiDonGrab` bi JS hieu la escape khong hop le
-// va nuot mat dau `\`, ra `C:TheoDoiDonGrab` — mot huong dan sai ma van trong
-// nhu that. (Da in ra file roi moi phat hien.)
-const HUONG_DAN = String.raw`THEO DOI DON GRAB
-==================
-
-Cong cu nay canh trang don hang Grab Merchant va day don moi sang ccmany.
-
-
-LAM GI VOI THU MUC NAY
-----------------------
-
-1. Chep NGUYEN CA THU MUC sang may quan.
-   Dat o cho ghi duoc, vi du C:\TheoDoiDonGrab
-   KHONG dat trong C:\Program Files (thu muc do chi doc, app se khong ghi
-   duoc nhat ky va bo nho chong trung).
-
-   Luu y: file "Theo doi don Grab.exe" KHONG chay mot minh duoc. No can toan
-   bo cac file .dll va thu muc resources/ nam canh no.
-
-2. Doi ten file  .env.example  thanh  .env
-   Mo bang Notepad, dien:
-       CCMANY_API_URL      dia chi nhan don
-       CCMANY_API_KEY      kho a API
-       TELEGRAM_BOT_TOKEN  (tuy chon)
-       TELEGRAM_CHAT_ID    (tuy chon)
-   De nguyen DRY_RUN=true cho toi khi chay thu xong.
-
-3. Mo file  config\stores.json  , dien ma quan va ten quan.
-
-4. Chay  "Tao loi tat ra desktop.cmd"  de co bieu tuong ngoai man hinh.
-
-5. Bam bieu tuong do de mo app. Lan dau phai bam "Mo trang Grab / Dang nhap"
-   roi dang nhap tai khoan merchant cua quan.
-
-
-DUNG HANG NGAY
---------------
-
-App chay ngam, bieu tuong la mot cham tron o khay he thong (goc phai duoi,
-co the phai bam mui ten ^ de thay).
-
-   cham XANH   dang theo doi don
-   cham VANG   chua theo doi, hoac dang thu lai
-   cham DO     mat phien Grab - can dang nhap lai
-
-Dong cua so bang nut X thi app VAN CHAY, chi thu xuong khay. Muon tat han
-thi bam chuot phai vao cham mau roi chon Thoat.
-
-Bam doi vao cham mau de mo lai bang dieu khien.
-
-
-KHI CO VAN DE
--------------
-
-Chuot phai vao cham mau -> Xem nhat ky.
-
-Telegram bao "MAT PHIEN GRAB"  ->  mo app, bam "Mo trang Grab", dang nhap lai.
-Telegram bao "khong gui duoc sau 5 lan"  ->  don do khong len duoc ccmany,
-vao Grab xem tay roi bao lai de sua.
-
-
-CAI DAT DAY DU CHO MAY QUAN
----------------------------
-
-Muon may tu chay lai sau khi mat dien hay sau khi Windows tu khoi dong lai,
-xem file  docs/cai-dat-may-quan.md  trong ma nguon: co danh sach 10 buoc
-(tai khoan Windows khong mat khau, tat che do ngu, cai dat BIOS...).
-`;
+import { GO_CAI_DAT, HUONG_DAN, TAO_LOI_TAT, TEN_APP } from './lib/noi-dung.mjs';
 
 const goc = join(dirname(fileURLToPath(import.meta.url)), '..');
 const phienBan = JSON.parse(readFileSync(join(goc, 'package.json'), 'utf8')).version;
@@ -177,6 +88,11 @@ writeFileSync(join(dich, 'DOC FILE NAY TRUOC.txt'), HUONG_DAN, 'utf8');
 // 6. Loi tat: tao bang .lnk co icon rieng. Viet ra file .cmd de nguoi cai chay
 //    tren may quan — khong tu chay o day, va khong doi quyen quan tri.
 writeFileSync(join(dich, 'Tao loi tat ra desktop.cmd'), TAO_LOI_TAT, 'latin1');
+
+// 7. Trinh go cai dat. Phai nam TRONG thu muc app: luc can go thi thu duy nhat
+//    nguoi ta chac chan tim thay la chinh thu muc do. (Script tu chep minh sang
+//    %TEMP% roi moi xoa — xem GO_CAI_DAT.)
+writeFileSync(join(dich, 'Go cai dat.cmd'), GO_CAI_DAT, 'latin1');
 
 console.log(`da dong goi: ${dich}`);
 console.log(`  file chay: ${TEN_APP}.exe  (hash y het electron.exe goc)`);

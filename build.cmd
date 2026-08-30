@@ -1,12 +1,4 @@
 @echo off
-rem ===========================================================================
-rem  run.cmd - bam doi vao file nay la xong.
-rem
-rem  Kiem tra ma nguon -> dong goi thanh thu muc chay duoc -> tao loi tat.
-rem
-rem  CO Y kiem tra TRUOC khi dong goi: mang mot ban hong ra quan roi moi phat
-rem  hien thi mat ca buoi, va luc do khong ai o do de sua.
-rem ===========================================================================
 setlocal
 cd /d "%~dp0"
 title Dong goi Theo doi don Grab
@@ -17,8 +9,8 @@ echo   DONG GOI - THEO DOI DON GRAB
 echo  ================================================
 echo.
 
-rem --- [1/5] Node.js ---------------------------------------------------------
-echo  [1/5] Kiem tra Node.js...
+rem --- [1/6] Node.js ---------------------------------------------------------
+echo  [1/6] Kiem tra Node.js...
 where node >nul 2>&1
 if errorlevel 1 (
   echo.
@@ -28,8 +20,8 @@ if errorlevel 1 (
 )
 for /f "tokens=*" %%v in ('node --version') do echo        Node %%v
 
-rem --- [2/5] Thu vien --------------------------------------------------------
-echo  [2/5] Kiem tra thu vien...
+rem --- [2/6] Thu vien --------------------------------------------------------
+echo  [2/6] Kiem tra thu vien...
 if exist "node_modules\electron\dist\electron.exe" (
   echo        da co san
 ) else (
@@ -38,8 +30,11 @@ if exist "node_modules\electron\dist\electron.exe" (
   if errorlevel 1 goto :ket_thuc_loi
 )
 
-rem --- [3/5] Kiem tra ma nguon ----------------------------------------------
-echo  [3/5] Kiem tra ma nguon...
+rem --- [3/6] Kiem tra ma nguon ----------------------------------------------
+rem Nuot ca stdout lan stderr: vitest in ra vai dong ERROR la KET QUA MONG DOI
+rem cua chinh cac test ve mat phien, hien len day chi lam nguoi doc tuong la
+rem hong. Chi ma thoat moi la cau tra loi that.
+echo  [3/6] Kiem tra ma nguon...
 call npm run typecheck >nul 2>&1
 if errorlevel 1 (
   echo.
@@ -56,18 +51,28 @@ if errorlevel 1 (
 )
 echo        test: OK
 
-rem --- [4/5] Dong goi --------------------------------------------------------
-echo  [4/5] Dong goi... (khoang mot phut)
+rem --- [4/6] Dong goi --------------------------------------------------------
+echo  [4/6] Dong goi thanh thu muc... (khoang mot phut)
 call npm run portable >nul 2>&1
 if errorlevel 1 (
   echo.
   echo  DONG GOI THAT BAI. Chay "npm run portable" de xem chi tiet.
   goto :ket_thuc_loi
 )
-echo        xong
+echo        release\portable
+
+rem --- [5/6] Mot file cai dat -----------------------------------------------
+echo  [5/6] Dong goi thanh MOT file cai dat...
+call node scripts\make-installer.mjs >nul 2>&1
+if errorlevel 1 (
+  echo.
+  echo  KHONG TAO DUOC FILE CAI DAT. Chay "npm run installer" de xem chi tiet.
+  goto :ket_thuc_loi
+)
+echo        release\CaiDatTheoDoiDonGrab.cmd
 
 rem --- [5/5] Loi tat ---------------------------------------------------------
-echo  [5/5] Tao loi tat ngoai desktop...
+echo  [6/6] Tao loi tat ngoai desktop...
 call "release\portable\Tao loi tat ra desktop.cmd" /nopause >nul 2>&1
 if errorlevel 1 (
   echo        khong tao duoc loi tat - van dung duoc, tu mo thu muc de chay
@@ -83,13 +88,18 @@ echo.
 echo  Loi tat da co ngoai man hinh desktop - bam vao la chay duoc ngay.
 echo.
 echo  ------------------------------------------------
-echo   CHEP SANG MAY KHAC THI CHEP THU MUC NAY:
+echo   GUI SANG MAY QUAN - CHON MOT TRONG HAI:
 echo.
-echo      release\portable
+echo   1. MOT FILE  (de nhat, can mang luc cai)
+echo        release\CaiDatTheoDoiDonGrab.cmd     ~95 KB
+echo      Gui moi file nay. Ben do bam doi la tu cai, tu tao loi tat.
+echo      No tu tai Electron tu trang phat hanh chinh thuc.
 echo.
-echo   Chep ca thu muc, hoac nen lai roi giai nen o may kia. Sau do chay
-echo   "Tao loi tat ra desktop.cmd" nam ben trong thu muc do la xong.
-echo   Nho doi .env.example thanh .env va dien kho a truoc khi chay that.
+echo   2. CA THU MUC  (khong can mang luc cai)
+echo        release\portable                     ~366 MB
+echo      Nen lai, giai nen o may kia, chay "Tao loi tat ra desktop.cmd".
+echo.
+echo   Ca hai deu can doi .env.example thanh .env va dien kho a.
 echo  ------------------------------------------------
 echo.
 

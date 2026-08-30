@@ -30,8 +30,12 @@ async function refresh() {
   }
 
   capNhatDen(status);
+  capNhatChonQuan(status);
 
-  set('quan', `${status.storeName} · ${status.merchantID}`);
+  set(
+    'quan',
+    status.merchantID ? `${status.storeName} · ${status.merchantID}` : 'chưa chọn quán',
+  );
   set('chedo', status.dryRun ? `CHẠY KHÔ — ${status.dryRunReason}` : 'GỬI THẬT lên ccmany');
   set(
     'telegram',
@@ -73,6 +77,27 @@ async function refresh() {
 }
 
 /**
+ * Khung "chưa chọn quán" chỉ hiện ở lần chạy đầu, và tự biến mất khi đã chọn.
+ *
+ * Mã quán đọc thẳng từ URL của tab Grab — chỗ người dùng vốn đã bấm vào. Bỏ
+ * được khâu gõ tay một chuỗi 16 ký tự, vốn là chỗ sai nhiều nhất khi cài.
+ */
+function capNhatChonQuan(status) {
+  // Ban dev khong go duoc (thu muc "app" chinh la node_modules/electron/dist),
+  // nen an han cai nut di thay vi de no bao loi khi bam.
+  $('khu-go').hidden = !status.daCaiDat;
+
+  const khung = $('chuachon');
+  khung.hidden = Boolean(status.merchantID);
+  if (khung.hidden) return;
+
+  const ma = status.maQuanPhatHien;
+  set('maquan', ma ?? 'chưa có — hãy mở Grab và bấm vào quán');
+  $('btn-dung-quan').disabled = !ma;
+  $('btn-dung-quan').textContent = ma ? `Dùng quán ${ma}` : 'Dùng quán này';
+}
+
+/**
  * Trang thai lay tu KET QUA GOI API THAT, khong suy tu URL: Grab tai trang xong
  * roi moi chuyen huong sang trang dang nhap, nen co mot khoang URL van tro nhu
  * binh thuong du da mat phien.
@@ -81,6 +106,11 @@ function capNhatDen(status) {
   const poller = status.poller;
   const probe = status.lastProbe;
 
+  if (!status.merchantID) {
+    $('den').className = 'den vang';
+    set('trangthai', 'Chưa chọn quán — xem khung phía trên');
+    return;
+  }
   if (poller?.state === 'mat-phien') {
     $('den').className = 'den do';
     set('trangthai', 'MẤT PHIÊN — bấm "Mở trang Grab" để đăng nhập lại');
@@ -136,6 +166,44 @@ function motaBenBi(r) {
 }
 
 $('btn-nhatky').addEventListener('click', () => window.api.openLog());
+
+$('btn-go').addEventListener('click', async () => {
+  const nut = $('btn-go');
+  nut.disabled = true;
+  // Hop thoai hoi/dap nam o tien trinh chinh chu khong phai confirm() cua trang:
+  // confirm() khong co o checkbox, ma cai checkbox ("giu lai dang nhap") moi la
+  // phan quan trong cua cau hoi nay.
+  const ketQua = await window.api.goCaiDat();
+  if (ketQua?.ok) {
+    nut.textContent = 'Đang gỡ, app sẽ đóng lại…';
+    return;
+  }
+  nut.disabled = false;
+  // Khong co `loi` = nguoi dung bam Huy. Khong bao gi ca, ho biet ho vua lam gi.
+  if (ketQua?.loi) nut.textContent = `Không gỡ được: ${ketQua.loi}`;
+});
+$('btn-cauhinh').addEventListener('click', () => window.api.openConfig());
+
+$('btn-chon-grab').addEventListener('click', async () => {
+  await window.api.showGrabWindow();
+  // Doc lai lien tuc mot lúc: người dùng còn phải đăng nhập rồi bấm vào quán,
+  // và mã chỉ xuất hiện sau khi họ tới trang đơn hàng.
+  for (let i = 0; i < 40; i += 1) {
+    await new Promise((r) => setTimeout(r, 1500));
+    await refresh();
+  }
+});
+
+$('btn-dung-quan').addEventListener('click', async () => {
+  const ma = $('maquan').textContent;
+  $('btn-dung-quan').disabled = true;
+  $('btn-dung-quan').textContent = 'Đang lưu, app sẽ khởi động lại…';
+  const ketQua = await window.api.saveStore(ma);
+  if (!ketQua?.ok) {
+    $('btn-dung-quan').disabled = false;
+    $('btn-dung-quan').textContent = `Lỗi: ${ketQua?.loi ?? 'không rõ'}`;
+  }
+});
 $('btn-kiem').addEventListener('click', async () => {
   set('trangthai', 'đang kiểm tra…');
   await window.api.probeGrab();

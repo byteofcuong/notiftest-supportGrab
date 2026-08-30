@@ -1,9 +1,21 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import * as path from 'node:path';
-import { chonThuMucGhiDuoc, loadConfig, loadEnvFile, loadStores } from '../core/config.js';
+import { spawn } from 'node:child_process';
+import { copyFileSync, existsSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  chonThuMucGhiDuoc,
+  chuanBiCauHinh,
+  loadConfig,
+  loadEnvFile,
+  loadStores,
+  luuMaQuan,
+} from '../core/config.js';
 import { Logger } from '../core/log.js';
 import { GrabWindow } from './grab-window.js';
 import { AppTray } from './tray.js';
+import { dangKyGoCaiDat } from './registry.js';
 import { Resilience } from './resilience.js';
 import { chayKichBanPhaHoai } from './chaos.js';
 import { GrabClient, SessionExpiredError } from '../grab/client.js';
@@ -43,11 +55,20 @@ if (process.env.ELECTRON_RUN_AS_NODE) {
   process.exit(1);
 }
 
+// PHAI dat DONG DAU TIEN, truoc moi loi goi app.getPath(). Khong dat thi
+// Electron dung ten mac dinh "Electron", va ca phien Grab lan cau hinh se nam o
+// AppData/Roaming/Electron/ — dung chung voi moi app Electron khac chay o che do
+// phat trien, va se DOI CHO khi dong goi thanh .exe, tuc la mat het sau khi cai.
+app.setName('grab-order-watcher');
+
 // Goc du an. Khi da dong goi thanh .exe thi __dirname nam trong asar, nen lay
 // thu muc chua file thuc thi de .env va config/ van sua duoc sau khi cai.
 const ROOT = app.isPackaged ? path.dirname(app.getPath('exe')) : path.resolve(__dirname, '../..');
 
-loadEnvFile(path.join(ROOT, '.env'));
+// Cau hinh duoc gieo sang thu muc du lieu nguoi dung de lan cap nhat app (chep
+// de nguyen ca thu muc) khong xoa mat no. Xem chuanBiCauHinh().
+const VI_TRI_CAU_HINH = chuanBiCauHinh(ROOT, app.getPath('userData'));
+if (VI_TRI_CAU_HINH.envFile) loadEnvFile(VI_TRI_CAU_HINH.envFile);
 
 /**
  * App duoc Windows tu chay luc dang nhap, chu khong phai nguoi dung tu bam.
@@ -56,12 +77,6 @@ loadEnvFile(path.join(ROOT, '.env'));
  * capNhatTuChayCungWindows().
  */
 const TU_CHAY = process.argv.includes('--tu-chay');
-
-// PHAI dat TRUOC khi app san sang. Khong dat thi Electron dung ten mac dinh
-// "Electron", va phien Grab se nam o AppData/Roaming/Electron/ — dung chung
-// voi moi app Electron khac chay o che do phat trien, va se DOI CHO khi dong
-// goi thanh .exe, tuc la mat phien dang nhap sau khi cai dat.
-app.setName('grab-order-watcher');
 
 let config: AppConfig;
 let stores: StoreConfig[];
@@ -167,6 +182,135 @@ function xemNhatKy(): void {
   void shell.openPath(file);
 }
 
+/**
+ * Mo file .env bang Notepad, tu tao tu mau neu chua co.
+ *
+ * Bo hai buoc ma nguoi khong ranh may tinh hay hong nhat: di tim thu muc trong
+ * AppData, va DOI TEN `.env.example` thanh `.env` — Notepad rat thich luu thanh
+ * `.env.txt`, va luc do app bao "chua cau hinh" ma khong ai hieu vi sao.
+ */
+function moFileCauHinh(): void {
+  const dich = join(app.getPath('userData'), '.env');
+  try {
+    if (!existsSync(dich)) {
+      const mau = join(ROOT, '.env.example');
+      if (existsSync(mau)) copyFileSync(mau, dich);
+      else writeFileSync(dich, ['CCMANY_API_URL=', 'CCMANY_API_KEY=', 'DRY_RUN=true', ''].join('\n'), 'utf8');
+      logger.info('Da tao file cau hinh tu mau', dich);
+    }
+  } catch (err) {
+    logger.error('Khong tao duoc file cau hinh', err);
+    return;
+  }
+  void shell.openPath(dich);
+}
+
+/**
+ * Go cai dat: hoi cho ro roi giao viec cho "Go cai dat.cmd".
+ *
+ * App KHONG TU XOA MINH DUOC. Windows khoa file .exe dang chay va cac DLL da
+ * nap, nen moi co gang xoa thu muc cai tu ben trong deu ket thuc bang mot ban
+ * cai xoa do dang. Nen o day chi lam ba viec: hoi, day script ra %TEMP% (ra
+ * ngoai thu muc sap bi xoa), chay no roi thoat. Script tu doi tien trinh nay
+ * chet han moi bat dau xoa.
+ */
+async function goCaiDat(): Promise<{ ok: boolean; loi?: string }> {
+  // Rao quan trong nhat cua tinh nang nay. O che do phat trien, "thu muc app"
+  // chinh la node_modules/electron/dist — bam nut nay se xoa mat Electron cua
+  // repo. Chua ke muc tu chay va loi tat cung khong ton tai de ma go.
+  if (!app.isPackaged) {
+    return {
+      ok: false,
+      loi: 'Chi go duoc ban da cai. Dang chay o che do phat trien (npm run dev), khong co gi de go.',
+    };
+  }
+
+  const script = join(ROOT, 'Go cai dat.cmd');
+  if (!existsSync(script)) {
+    return { ok: false, loi: `Khong thay "Go cai dat.cmd" trong ${ROOT}` };
+  }
+
+  const opts: Electron.MessageBoxOptions = {
+    type: 'warning',
+    title: 'Gỡ cài đặt',
+    message: 'Gỡ "Theo dõi đơn Grab" khỏi máy này?',
+    detail: [
+      'Sẽ xoá:',
+      `    •  thư mục cài đặt   ${ROOT}`,
+      '    •  lối tắt ngoài desktop',
+      '    •  mục tự chạy cùng Windows',
+      '',
+      'App đóng lại ngay và ngừng theo dõi đơn. Đơn về trong lúc đó sẽ không lên ccmany.',
+    ].join('\n'),
+    checkboxLabel: 'Giữ lại phiên đăng nhập Grab và cấu hình — cài lại không phải đăng nhập lại',
+    checkboxChecked: true,
+    buttons: ['Huỷ', 'Gỡ cài đặt'],
+    defaultId: 0,
+    // Bam Esc hay dong hop thoai = Huy. Mac dinh cua mot hop thoai xoa khong
+    // bao gio duoc la "xoa".
+    cancelId: 0,
+    noLink: true,
+  };
+  const chon = controlWindow
+    ? await dialog.showMessageBox(controlWindow, opts)
+    : await dialog.showMessageBox(opts);
+  if (chon.response !== 1) return { ok: false };
+
+  const duLieu = chon.checkboxChecked ? 'giu' : 'xoa';
+  const banSao = join(tmpdir(), 'go-cai-dat-theo-doi-don-grab.cmd');
+  try {
+    copyFileSync(script, banSao);
+  } catch (err) {
+    logger.error('Khong chep duoc trinh go cai dat sang thu muc tam', err);
+    return { ok: false, loi: (err as Error).message };
+  }
+
+  logger.warn('NGUOI DUNG GO CAI DAT', { thuMuc: ROOT, duLieu });
+
+  // Tham so di bang BIEN MOI TRUONG chu khong bang tham so dong lenh: duong dan
+  // cai co the co dau cach, va cach `start` boc dau ngoac thi khong theo quy
+  // tac nao on dinh. Bien moi truong khong dinh toi chuyen dat dau ngoac.
+  //
+  // `start ""` de cua so console hien ra that su — nguoi bam nut can nhin thay
+  // viec dang chay va ket qua, chu khong phai app bien mat roi khong biet gi.
+  const con = spawn('cmd.exe', ['/c', 'start', '', banSao], {
+    detached: true,
+    stdio: 'ignore',
+    env: { ...process.env, GOCAIDAT_DIR: ROOT, GOCAIDAT_DULIEU: duLieu },
+  });
+  con.unref();
+
+  choPhepThoat = true;
+  // Thoat theo duong binh thuong (qua before-quit) de kip ghi phien Grab xuong
+  // dia — neu nguoi dung chon GIU LAI thi do chinh la thu ho muon giu.
+  app.quit();
+  return { ok: true };
+}
+
+/**
+ * Luu ma quan vua chon roi khoi dong lai app.
+ *
+ * CO Y khoi dong lai thay vi lap rap lai tai cho. Doi quan nghia la doi ca
+ * poller, cache, bo dem don hom nay, trang thai khay — lap rap lai giua chung
+ * de sot mot manh la sinh ra loi chi hien ra sau vai gio. Khoi dong lai mat ba
+ * giay va khong bo sot gi.
+ */
+function luuVaKhoiDongLai(maQuan: string): { ok: boolean; loi?: string } {
+  const ma = maQuan.trim();
+  if (!ma) return { ok: false, loi: 'Chua nhan duoc ma quan nao' };
+  try {
+    luuMaQuan(app.getPath('userData'), ma);
+    logger.info('Da luu ma quan, dang khoi dong lai', ma);
+  } catch (err) {
+    logger.error('Khong luu duoc ma quan', err);
+    return { ok: false, loi: (err as Error).message };
+  }
+  choPhepThoat = true;
+  app.relaunch();
+  app.quit();
+  return { ok: true };
+}
+
 function createControlWindow(): void {
   controlWindow = new BrowserWindow({
     width: 720,
@@ -202,10 +346,11 @@ function createControlWindow(): void {
 
 function registerIpc(): void {
   ipcMain.handle('status:get', () => {
-    const store = stores[0]!;
+    const store = stores[0];
     return {
-      storeName: store.storeName,
-      merchantID: store.grabMerchantID,
+      storeName: store?.storeName ?? null,
+      merchantID: store?.grabMerchantID ?? null,
+      maQuanPhatHien: grabWindow?.maQuanPhatHien() ?? null,
       dryRun: config.dryRun,
       dryRunReason: config.dryRunReason,
       telegramEnabled: config.telegram !== null,
@@ -213,6 +358,9 @@ function registerIpc(): void {
       grabUrl: grabWindow?.currentUrl() ?? null,
       pageLoaded: grabWindow?.pageLoaded() ?? false,
       userAgent: app.userAgentFallback,
+      // Ban dev khong go duoc (xem goCaiDat). Giao dien dua vao day de khong
+      // chia ra mot cai nut chac chan bao loi khi bam.
+      daCaiDat: app.isPackaged,
       partitionPath: GrabWindow.partitionPath(),
       logPath: logger.filePath,
       lastProbe,
@@ -241,6 +389,13 @@ function registerIpc(): void {
   ipcMain.handle('log:open', () => {
     xemNhatKy();
   });
+  ipcMain.handle('config:open', () => {
+    moFileCauHinh();
+  });
+  ipcMain.handle('store:save', (_e, maQuan: unknown) => {
+    return luuVaKhoiDongLai(typeof maQuan === 'string' ? maQuan : '');
+  });
+  ipcMain.handle('app:go-cai-dat', () => goCaiDat());
 }
 
 app.whenReady().then(async () => {
@@ -254,20 +409,31 @@ app.whenReady().then(async () => {
   logger = new Logger({ level: config.logLevel, dir: path.join(config.dataDir, 'logs') });
 
   logger.info('=== Khoi dong ===', { root: ROOT, dataDir: config.dataDir });
+  for (const ghi of VI_TRI_CAU_HINH.ghiChu) logger.info(ghi);
+  logger.info('Doc cau hinh tu', {
+    env: VI_TRI_CAU_HINH.envFile ?? '(khong co - se chay kho)',
+    stores: path.join(VI_TRI_CAU_HINH.storesRoot, 'config', 'stores.json'),
+  });
   if (config.dryRun) logger.warn(`CHE DO CHAY KHO - ${config.dryRunReason}`);
   for (const warning of config.warnings) logger.warn(warning);
 
   capNhatTuChayCungWindows();
+  dangKyVaoSettingsWindows();
 
   try {
-    stores = loadStores(ROOT);
+    stores = loadStores(VI_TRI_CAU_HINH.storesRoot, { ccmanyStoreID: config.ccmanyStoreID });
   } catch (err) {
     logger.error('Khong doc duoc config/stores.json', err);
-    // Khong co quan thi khong co gi de lam. Van mo cua so de nguoi dung thay
-    // loi, thay vi thoat im lang.
     stores = [];
   }
-  logger.info(`Doc duoc ${stores.length} quan`, stores.map((s) => s.grabMerchantID));
+  if (stores.length === 0) {
+    // Lan chay dau: chua nhan dien duoc quan nao. Day KHONG phai loi — app van
+    // mo binh thuong, giao dien hien "chua chon quan" va cho nguoi dung dang
+    // nhap Grab roi bam vao quan cua ho.
+    logger.warn('CHUA CHON QUAN - mo trang Grab va bam vao quan de app tu nhan ma');
+  } else {
+    logger.info(`Doc duoc ${stores.length} quan`, stores.map((s) => s.grabMerchantID));
+  }
 
   GrabWindow.applyUserAgent(logger);
   logger.info('Thu muc phien Grab', GrabWindow.partitionPath());
@@ -298,19 +464,22 @@ app.whenReady().then(async () => {
   }
 
   const store = stores[0];
-  if (store) {
-    grabWindow = new GrabWindow({
-      merchantID: store.grabMerchantID,
-      logger,
-      onHidden: moBangDieuKhien,
-    });
-    // Mo san (van an) de phien duoc khoi phuc va trang bat dau song.
-    await grabWindow.open();
-    logger.info('Cua so Grab da san sang', {
-      url: grabWindow.currentUrl(),
-      trangDaTai: grabWindow.pageLoaded(),
-    });
 
+  // Cua so Grab duoc tao DU CHUA CHON QUAN. Thieu no thi nguoi dung khong co
+  // cho nao de dang nhap, ma khong dang nhap thi khong bao gio nhan dien duoc
+  // ma quan — be tac ngay tu lan chay dau.
+  grabWindow = new GrabWindow({
+    merchantID: store?.grabMerchantID ?? null,
+    logger,
+    onHidden: moBangDieuKhien,
+  });
+  await grabWindow.open();
+  logger.info('Cua so Grab da san sang', {
+    url: grabWindow.currentUrl(),
+    trangDaTai: grabWindow.pageLoaded(),
+  });
+
+  if (store) {
     grabClient = new GrabClient({
       getRunner: () => grabWindow?.runner() ?? null,
       getUrl: () => grabWindow?.currentUrl() ?? null,
@@ -390,6 +559,27 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createControlWindow();
   });
 });
+
+/**
+ * Hien trong Settings -> Apps -> Installed apps, kem nut Uninstall.
+ *
+ * Chi lam khi da dong goi, cung ly do voi tu-chay-cung-Windows: o che do phat
+ * trien thi "thu muc cai" la node_modules/electron/dist, dang ky no vao Windows
+ * la bay ra mot muc go cai dat tro vao giua repo.
+ */
+function dangKyVaoSettingsWindows(): void {
+  if (!app.isPackaged) return;
+  dangKyGoCaiDat(
+    {
+      tenHienThi: 'Theo dõi đơn Grab',
+      phienBan: app.getVersion(),
+      thuMucCai: ROOT,
+      trinhGoCaiDat: join(ROOT, 'Go cai dat.cmd'),
+      icon: join(ROOT, 'icon.ico'),
+    },
+    (thong, err) => logger.warn(thong, err),
+  );
+}
 
 /**
  * Tu chay cung Windows.

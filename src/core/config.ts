@@ -10,8 +10,15 @@
  * la dang thu.
  */
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import {
+  copyFileSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import type { StoreConfig, StoresFile } from './types.js';
 
 export interface TelegramConfig {
@@ -21,6 +28,12 @@ export interface TelegramConfig {
 
 export interface AppConfig {
   ccmany: { url: string; apiKey: string };
+  /**
+   * Ma quan phia ccmany. O trong .env chu khong phai stores.json, vi day la
+   * thu NGUOI phai dien, con stores.json thi app tu ghi khi nhan dien ma quan
+   * Grab. Tach ra the de khong ai phai mo hai file.
+   */
+  ccmanyStoreID: string;
   /** true = chi ghi payload ra dia, KHONG cham mang. */
   dryRun: boolean;
   /** Ly do dang o che do kho, de hien thi cho nguoi dung. null neu gui that. */
@@ -52,11 +65,37 @@ export interface AppConfig {
 const MIN_POLL_INTERVAL_MS = 3000;
 
 export function loadEnvFile(path: string): void {
+  boDauBOM(path);
   try {
     process.loadEnvFile(path);
   } catch {
     // Khong co .env cung chay duoc — moi thu deu co mac dinh, va chot an toan
     // se tu bat che do kho vi thieu kho a API.
+  }
+}
+
+/**
+ * Xoa dau BOM o dau file cau hinh.
+ *
+ * Nhieu cong cu tren Windows — Notepad ban cu, `Set-Content -Encoding utf8` cua
+ * PowerShell 5.1 — chen ba byte BOM vao dau file UTF-8. Hau qua khac nhau tuy
+ * file, va ca hai deu kho lan ra:
+ *
+ *   stores.json  ->  JSON.parse tu choi: "Unexpected token '﻿'"
+ *   .env         ->  TE HON: bo doc cua Node coi kho a dau tien la
+ *                    "﻿CCMANY_API_URL", tuc la thieu URL ma KHONG bao loi
+ *                    gi ca — app am tham chay o che do kho.
+ *
+ * Nen doc, thay co BOM thi ghi lai khong BOM. Sua han o dia chu khong chi bo
+ * qua luc doc: lan sau con nguoi hay cong cu khac mo file cung khoi vap.
+ */
+function boDauBOM(path: string): void {
+  try {
+    const noiDung = readFileSync(path, 'utf8');
+    if (!noiDung.startsWith('﻿')) return;
+    writeFileSync(path, noiDung.slice(1), 'utf8');
+  } catch {
+    // Khong doc/ghi duoc thi de nguyen; cho goi se bao loi cua no.
   }
 }
 
@@ -91,6 +130,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, root = process.
 
   return {
     ccmany: { url, apiKey },
+    ccmanyStoreID: (env.CCMANY_STORE_ID ?? '').trim() || 'STORE1',
     dryRun,
     dryRunReason,
     telegram,
@@ -109,6 +149,111 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, root = process.
     dataDir: resolve(root, 'data'),
     warnings,
   };
+}
+
+/** Hai file cau hinh, duong dan tuong doi so voi goc. */
+const FILE_CAU_HINH = ['.env', join('config', 'stores.json')] as const;
+
+export interface ViTriCauHinh {
+  /** File .env se doc. null khi ca hai noi deu khong co. */
+  envFile: string | null;
+  /** Thu muc chua config/stores.json se doc. */
+  storesRoot: string;
+  /** Viec da lam, de ghi vao nhat ky. */
+  ghiChu: string[];
+}
+
+/**
+ * Quyet dinh doc cau hinh o dau, va gieo no sang thu muc du lieu nguoi dung.
+ *
+ * ═══ VAN DE ═══
+ *
+ * Cau hinh (.env co kho a API, config/stores.json co ma quan) von nam CANH file
+ * thuc thi. Ma cap nhat app la chep de nguyen ca thu muc — tuc la lan cap nhat
+ * dau tien se XOA SACH cau hinh. Nhan vien mo len thay "CHAY KHO", khong ai
+ * hieu vi sao, va cong cu im lang khong gui don nao nua.
+ *
+ * ═══ CACH XU LY ═══
+ *
+ * Giu mot ban o `%APPDATA%\grab-order-watcher\` — cho do khong bi dung toi khi
+ * thay thu muc app.
+ *
+ *   co file canh .exe  ->  chep sang thu muc nguoi dung roi doc ban do
+ *   khong co           ->  doc ban da luu o thu muc nguoi dung
+ *   khong co ca hai    ->  khong co cau hinh (app tu bat che do chay kho)
+ *
+ * File nam canh .exe LUON THANG. Do la cai nguoi dung nhin thay va vua dat vao,
+ * nen no phai co tac dung — "cai minh vua bo vao thi thang" la quy tac duy nhat
+ * khong lam ai bat ngo.
+ *
+ * NGOAI LE: `config/stores.json` di kem ban cai la file RONG (ma quan do app tu
+ * nhan dien, khong ai go tay). De no "thang" thi moi lan mo app se ghi de len
+ * quan nguoi dung vua chon, va ho mat quan sau dung mot lan khoi dong lai. Nen
+ * ban rong thi bo qua, khong gieo, khong thang.
+ */
+export function chuanBiCauHinh(thuMucApp: string, thuMucNguoiDung: string): ViTriCauHinh {
+  const ghiChu: string[] = [];
+
+  for (const rel of FILE_CAU_HINH) {
+    const nguon = join(thuMucApp, rel);
+    const dich = join(thuMucNguoiDung, rel);
+    if (!laFile(nguon)) continue;
+    if (!coNoiDung(rel, nguon)) continue;
+    if (resolve(nguon) === resolve(dich)) continue;
+    try {
+      mkdirSync(dirname(dich), { recursive: true });
+      copyFileSync(nguon, dich);
+      ghiChu.push(`Da chep ${rel} sang ${thuMucNguoiDung} de cap nhat app khong lam mat`);
+    } catch (err) {
+      ghiChu.push(`Khong chep duoc ${rel} sang thu muc du lieu: ${(err as Error).message}`);
+    }
+  }
+
+  const envNguoiDung = join(thuMucNguoiDung, '.env');
+  const envApp = join(thuMucApp, '.env');
+  let envFile: string | null = null;
+  if (laFile(envNguoiDung)) envFile = envNguoiDung;
+  else if (laFile(envApp)) envFile = envApp;
+
+  const storesNguoiDung = join(thuMucNguoiDung, 'config', 'stores.json');
+  const storesRoot = laFile(storesNguoiDung) ? thuMucNguoiDung : thuMucApp;
+
+
+  return { envFile, storesRoot, ghiChu };
+}
+
+/**
+ * File co du lieu that hay chi la vo rong di kem ban cai.
+ *
+ * Chi xet `config/stores.json`: ban di kem luon co mang `stores` voi ma quan
+ * rong. Cac file khac (`.env`) thi nguoi dung tu dien nen co mat la co y nghia.
+ */
+function coNoiDung(rel: string, duongDan: string): boolean {
+  if (!rel.endsWith('stores.json')) return true;
+  try {
+    const parsed = JSON.parse(
+      readFileSync(duongDan, 'utf8').replace(/^﻿/, ''),
+    ) as StoresFile;
+    return (parsed.stores ?? []).some((s) => Boolean(s.grabMerchantID?.trim()));
+  } catch {
+    // Hong thi coi nhu khong co gi de gieo; loadStores se bao loi ro rang sau.
+    return false;
+  }
+}
+
+/**
+ * CO File that su, khong phai chi "co gi do o duong dan nay".
+ *
+ * `existsSync` tra ve true cho ca thu muc. Neu o dich lo co mot THU MUC ten
+ * `.env` — vi dun mot lan chep hong truoc do — thi coi no la cau hinh se dan
+ * toi loi doc file kho hieu o tan cho khac. Da bi test bat dung loi nay.
+ */
+function laFile(duongDan: string): boolean {
+  try {
+    return statSync(duongDan).isFile();
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -150,8 +295,30 @@ function ghiDuoc(dir: string): boolean {
   }
 }
 
-/** Doc config/stores.json. Nem loi neu hong — khong co quan thi khong chay duoc. */
-export function loadStores(root = process.cwd()): StoreConfig[] {
+/**
+ * Ghi lai ma quan Grab vua nhan dien duoc.
+ *
+ * Ghi de nguyen file: v1 chi mot quan, va file nay tu day tro di la do APP ghi
+ * chu khong phai nguoi sua tay. Nguoi chi dong toi .env.
+ */
+export function luuMaQuan(root: string, grabMerchantID: string): void {
+  const thuMuc = join(root, 'config');
+  mkdirSync(thuMuc, { recursive: true });
+  const noiDung: StoresFile = {
+    stores: [{ grabMerchantID, ccmanyStoreID: '', storeName: '', enabled: true }],
+  };
+  writeFileSync(join(thuMuc, 'stores.json'), `${JSON.stringify(noiDung, null, 2)}
+`, 'utf8');
+}
+
+/**
+ * Doc config/stores.json.
+ *
+ * Tra ve mang RONG khi chua nhan dien duoc quan nao — do la trang thai binh
+ * thuong cua lan chay dau, khong phai loi. App se hien "chua chon quan" thay vi
+ * sap. Chi nem loi khi file that su hong.
+ */
+export function loadStores(root = process.cwd(), macDinh?: { ccmanyStoreID: string }): StoreConfig[] {
   const path = join(root, 'config', 'stores.json');
   let raw: string;
   try {
@@ -162,7 +329,8 @@ export function loadStores(root = process.cwd()): StoreConfig[] {
 
   let parsed: StoresFile;
   try {
-    parsed = JSON.parse(raw) as StoresFile;
+    // Bo BOM neu co — xem boDauBOM() de biet vi sao no hay xuat hien.
+    parsed = JSON.parse(raw.replace(/^﻿/, '')) as StoresFile;
   } catch (err) {
     throw new Error(`${path} khong phai JSON hop le: ${(err as Error).message}`);
   }
@@ -171,19 +339,19 @@ export function loadStores(root = process.cwd()): StoreConfig[] {
     throw new Error(`${path} phai co mang "stores"`);
   }
 
-  const stores = parsed.stores.filter((store) => store.enabled !== false);
-  for (const [index, store] of stores.entries()) {
-    for (const field of ['grabMerchantID', 'ccmanyStoreID', 'storeName'] as const) {
-      if (!store[field]?.trim()) {
-        throw new Error(`stores[${index}] thieu "${field}"`);
-      }
-    }
-  }
-
-  if (stores.length === 0) {
-    throw new Error(`${path} khong co quan nao dang bat`);
-  }
-  return stores;
+  return parsed.stores
+    .filter((store) => store.enabled !== false)
+    // Chua co ma quan = chua thiet lap xong. Bo qua, khong nem loi.
+    .filter((store) => Boolean(store.grabMerchantID?.trim()))
+    .map((store) => ({
+      ...store,
+      grabMerchantID: store.grabMerchantID.trim(),
+      // Hai truong nay chi de hien thi va de danh dau don ben ccmany. Thieu thi
+      // lay mac dinh, khong chan app chay — chan o day nghia la mot o trong
+      // trong file text lam ca cong cu ngung nhan don.
+      ccmanyStoreID: store.ccmanyStoreID?.trim() || macDinh?.ccmanyStoreID || 'STORE1',
+      storeName: store.storeName?.trim() || store.grabMerchantID.trim(),
+    }));
 }
 
 // ── Doc gia tri ──────────────────────────────────────────────────────────────

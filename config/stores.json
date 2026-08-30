@@ -1,9 +1,9 @@
 {
   "stores": [
     {
-      "grabMerchantID": "5-C7XUNYEVEADYN2",
-      "ccmanyStoreID": "STORE1",
-      "storeName": "Ten quan (dien sau)",
+      "grabMerchantID": "",
+      "ccmanyStoreID": "",
+      "storeName": "",
       "enabled": true
     }
   ]

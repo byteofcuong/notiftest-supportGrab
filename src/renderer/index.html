@@ -53,10 +53,33 @@
       button:hover { background: #303640; }
       code { color: var(--dim); font-size: 12px; }
       .ghichu { color: var(--dim); font-size: 12px; margin: -4px 0 12px; line-height: 1.5; }
+      /* Khu vuc nguy hiem: tach han ra, vien do, chu nho. Cai nut nay khong duoc
+         nam lan giua nhung nut bam hang ngay — mot cu bam nham la ca buoi toi
+         khong don nao len ccmany va khong ai biet vi sao. */
+      .nguyhiem { border-color: #4a2b2b; }
+      .nguyhiem button { border-color: #6b3230; color: #e8a19f; }
+      .nguyhiem button:hover { background: #3a2422; }
+      .nguyhiem .ghichu { margin: 10px 0 0; }
     </style>
   </head>
   <body>
     <h1>Theo dõi đơn Grab</h1>
+
+    <div class="panel" id="chuachon" hidden>
+      <div class="row"><span class="label">Chưa chọn quán</span></div>
+      <p class="ghichu" style="margin: 6px 0 10px">
+        Bấm <b>Mở Grab để chọn quán</b>, đăng nhập rồi bấm vào quán của bạn.
+        Công cụ sẽ tự đọc mã quán từ trang đó — không phải gõ tay.
+      </p>
+      <div class="row">
+        <span class="label">Mã quán nhận được</span>
+        <span class="value"><code id="maquan">chưa có</code></span>
+      </div>
+      <div style="margin-top: 10px">
+        <button id="btn-chon-grab">Mở Grab để chọn quán</button>
+        <button id="btn-dung-quan" disabled>Dùng quán này</button>
+      </div>
+    </div>
 
     <div class="panel">
       <div class="row">
@@ -79,6 +102,7 @@
       <button id="btn-tai">Tải lại</button>
       <button id="btn-kiem">Kiểm tra kết nối Grab</button>
       <button id="btn-nhatky">Xem nhật ký</button>
+      <button id="btn-cauhinh">Mở file cấu hình</button>
       <button id="btn-dung">Tạm dừng theo dõi</button>
     </div>
 
@@ -89,6 +113,13 @@
       <div class="row"><span class="label">User-agent</span><span class="value"><code id="ua">—</code></span></div>
       <div class="row"><span class="label">Thư mục phiên</span><span class="value"><code id="phien">—</code></span></div>
       <div id="canhbao"></div>
+    </div>
+
+    <div class="panel nguyhiem" id="khu-go" hidden>
+      <button id="btn-go">Gỡ cài đặt khỏi máy này</button>
+      <p class="ghichu">Xoá app, lối tắt và mục tự chạy cùng Windows. Sẽ hỏi trước, và
+        hỏi luôn có <b>giữ lại phiên đăng nhập Grab</b> không — giữ thì cài lại là chạy
+        được ngay, không phải đăng nhập và chọn quán lại.</p>
     </div>
 
     <script src="./app.js"></script>

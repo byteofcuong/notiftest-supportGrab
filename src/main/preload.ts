@@ -9,8 +9,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 export interface AppStatus {
-  storeName: string;
-  merchantID: string;
+  /** null khi chua chon quan — lan chay dau tien. */
+  storeName: string | null;
+  merchantID: string | null;
+  /** Ma quan doc duoc tu URL tab Grab, de nguoi dung khoi go tay. */
+  maQuanPhatHien: string | null;
   dryRun: boolean;
   dryRunReason: string | null;
   telegramEnabled: boolean;
@@ -20,6 +23,8 @@ export interface AppStatus {
   /** Chi la "trang da tai", KHONG phai "da dang nhap" — xem grab-window.ts */
   pageLoaded: boolean;
   userAgent: string;
+  /** Ban da cai (khong phai `npm run dev`). Chi ban nay moi go cai dat duoc. */
+  daCaiDat: boolean;
   partitionPath: string;
   /** Duong dan file nhat ky, cho nut "Xem nhat ky". */
   logPath: string | null;
@@ -64,4 +69,9 @@ contextBridge.exposeInMainWorld('api', {
   probeGrab: (): Promise<ProbeResult | null> => ipcRenderer.invoke('grab:probe'),
   togglePoller: (): Promise<void> => ipcRenderer.invoke('poller:toggle'),
   openLog: (): Promise<void> => ipcRenderer.invoke('log:open'),
+  openConfig: (): Promise<void> => ipcRenderer.invoke('config:open'),
+  saveStore: (maQuan: string): Promise<{ ok: boolean; loi?: string }> =>
+    ipcRenderer.invoke('store:save', maQuan),
+  /** `ok:false` khong kem `loi` nghia la nguoi dung bam Huy — khong phai that bai. */
+  goCaiDat: (): Promise<{ ok: boolean; loi?: string }> => ipcRenderer.invoke('app:go-cai-dat'),
 });

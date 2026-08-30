@@ -15,11 +15,16 @@ import type { Logger } from '../core/log.js';
 /** Phien rieng, luu xuong dia trong userData/Partitions/grab. */
 const PARTITION = 'persist:grab';
 
-const ORDERS_URL = (merchantID: string) =>
-  `https://merchant.grab.com/order/${merchantID}/preparing`;
+/** Trang chu cong Grab. Dung khi CHUA biet quan nao — de nguoi dung dang nhap
+ *  roi tu bam vao quan cua ho, luc do minh doc ma quan tu URL. */
+const PORTAL_URL = 'https://merchant.grab.com/';
+
+const ORDERS_URL = (merchantID: string | null) =>
+  merchantID ? `https://merchant.grab.com/order/${merchantID}/preparing` : PORTAL_URL;
 
 export interface GrabWindowOptions {
-  merchantID: string;
+  /** null khi chua thiet lap xong — cua so se mo trang chu cong Grab. */
+  merchantID: string | null;
   logger: Logger;
   /** Goi khi cua so Grab an di, de dua nguoi dung ve bang dieu khien. */
   onHidden?: () => void;
@@ -30,6 +35,8 @@ export class GrabWindow {
   private quitting = false;
   /** Lan tai gan nhat that bai — trang dang la trang loi cua Chromium. */
   private trangHong = false;
+  /** Ma quan doc duoc tu URL nguoi dung vua mo. Xem macQuanTuUrl(). */
+  private maQuanThayGanNhat: string | null = null;
 
   constructor(private readonly options: GrabWindowOptions) {}
 
@@ -47,6 +54,36 @@ export class GrabWindow {
       .replace(new RegExp(`\\s*${escapeRegExp(appName)}/[\\d.]+`), '')
       .replace(/\s*Electron\/[\d.]+/, '')
       .trim();
+  }
+
+  /**
+   * Boc ma quan tu URL cua trang don hang.
+   *
+   *   https://merchant.grab.com/order/5-C7XUNYEVEADYN2/preparing
+   *                                   ^^^^^^^^^^^^^^^^
+   *
+   * Day la cach lay ma quan ma KHONG can API nao khong co tai lieu: no nam san
+   * tren thanh dia chi cua chinh trang ma nguoi dung vua bam vao. Cong Grab
+   * khong co endpoint nao trong hai ban ghi HAR tra ve danh sach quan, nen doc
+   * URL la duong chac chan nhat hien co.
+   *
+   * Kiem dang ma chat tay: `/order/` con co nhung duong khac (vi du `/order/new`)
+   * ma minh khong duoc phep nham la ma quan.
+   */
+  static macQuanTuUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    let duongDan: URL;
+    try {
+      duongDan = new URL(url);
+    } catch {
+      return null;
+    }
+    if (duongDan.hostname !== 'merchant.grab.com') return null;
+
+    const khop = /^\/order\/([^/?#]+)/.exec(duongDan.pathname);
+    const ma = khop?.[1];
+    if (!ma) return null;
+    return /^\d+-[A-Z0-9]{8,}$/i.test(ma) ? ma : null;
   }
 
   /** Goi MOT LAN truoc khi tao cua so. */
@@ -99,6 +136,18 @@ export class GrabWindow {
     window.webContents.on('did-start-loading', () => {
       this.trangHong = false;
     });
+
+    // Grab la SPA: chuyen quan khong tai lai trang, chi doi URL. Nen phai nghe
+    // ca hai su kien, khong thi bam sang quan khac ma minh khong hay biet.
+    const ghiNhanUrl = (): void => {
+      const ma = GrabWindow.macQuanTuUrl(window.webContents.getURL());
+      if (ma && ma !== this.maQuanThayGanNhat) {
+        this.maQuanThayGanNhat = ma;
+        this.options.logger.info('Thay ma quan tren trang Grab', ma);
+      }
+    };
+    window.webContents.on('did-navigate', ghiNhanUrl);
+    window.webContents.on('did-navigate-in-page', ghiNhanUrl);
 
     window.webContents.on('did-finish-load', () => {
       this.options.logger.debug('Trang Grab tai xong', { url: window.webContents.getURL() });
@@ -211,6 +260,16 @@ export class GrabWindow {
       phien.webRequest.onBeforeRequest(null);
     }
     this.options.logger.warn(matMang ? 'GIA LAP: da ngat mang' : 'GIA LAP: da noi lai mang');
+  }
+
+  /**
+   * Ma quan gan nhat nhin thay tren trang Grab, de nguoi dung khoi phai go tay.
+   *
+   * null khi nguoi dung chua mo trang don hang cua quan nao — vi du con dang o
+   * trang dang nhap hoac trang tong quan.
+   */
+  maQuanPhatHien(): string | null {
+    return this.maQuanThayGanNhat;
   }
 
   /** URL hien tai — dung de doan xem con phien hay da bi da ve trang dang nhap. */

@@ -1,8 +1,8 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { loadConfig, loadStores } from '../src/core/config.js';
+import { loadConfig, loadEnvFile, loadStores, luuMaQuan } from '../src/core/config.js';
 
 let root: string;
 
@@ -121,14 +121,27 @@ describe('loadStores', () => {
     expect(loadStores(root).map((s) => s.ccmanyStoreID)).toEqual(['S1']);
   });
 
-  it('nem loi khi thieu truong bat buoc — khong am tham gui sai ma quan', () => {
-    writeStores({ stores: [{ grabMerchantID: '5-AAA', ccmanyStoreID: '', storeName: 'A' }] });
-    expect(() => loadStores(root)).toThrowError(/ccmanyStoreID/);
+  // ccmanyStoreID va storeName chi de hien thi / danh dau ben ccmany. Chan app
+  // chay chi vi mot o trong trong file text la doi mot phien thiet lap chua
+  // xong thanh mot cong cu ngung nhan don.
+  it('thieu ccmanyStoreID thi lay mac dinh chu khong nem loi', () => {
+    writeStores({ stores: [{ grabMerchantID: '5-AAA', ccmanyStoreID: '', storeName: '' }] });
+    const stores = loadStores(root, { ccmanyStoreID: 'TU-ENV' });
+    expect(stores[0]!.ccmanyStoreID).toBe('TU-ENV');
+    // Khong co ten thi lay chinh ma quan lam ten — du de nhan ra tren giao dien.
+    expect(stores[0]!.storeName).toBe('5-AAA');
   });
 
-  it('nem loi khi khong co quan nao bat', () => {
+  // Lan chay dau tien chua nhan dien duoc quan nao. Do la trang thai binh
+  // thuong, khong phai loi: app se hien "chua chon quan".
+  it('chua co ma quan thi tra ve mang rong, khong nem loi', () => {
+    writeStores({ stores: [{ grabMerchantID: '', ccmanyStoreID: '', storeName: '' }] });
+    expect(loadStores(root)).toEqual([]);
+  });
+
+  it('khong co quan nao bat thi tra ve mang rong', () => {
     writeStores({ stores: [] });
-    expect(() => loadStores(root)).toThrowError(/khong co quan nao/);
+    expect(loadStores(root)).toEqual([]);
   });
 
   it('nem loi khi file khong ton tai', () => {
@@ -139,5 +152,72 @@ describe('loadStores', () => {
     mkdirSync(join(root, 'config'), { recursive: true });
     writeFileSync(join(root, 'config', 'stores.json'), '{hong', 'utf8');
     expect(() => loadStores(root)).toThrowError(/khong phai JSON/);
+  });
+});
+
+/**
+ * Ma quan duoc app tu ghi sau khi nhan dien tu tab Grab, nen cap ghi-doc phai
+ * khop nhau. Lech mot chut la nguoi dung chon quan xong, khoi dong lai, va thay
+ * "chua chon quan" nhu chua he bam gi.
+ */
+describe('luuMaQuan', () => {
+  it('ghi xong thi doc lai duoc dung ma do', () => {
+    luuMaQuan(root, '5-C7XUNYEVEADYN2');
+    const stores = loadStores(root, { ccmanyStoreID: 'S9' });
+    expect(stores).toHaveLength(1);
+    expect(stores[0]!.grabMerchantID).toBe('5-C7XUNYEVEADYN2');
+    expect(stores[0]!.ccmanyStoreID).toBe('S9');
+  });
+
+  it('tu tao thu muc config neu chua co', () => {
+    luuMaQuan(join(root, 'chua-ton-tai'), '5-AAAAAAAAAA');
+    expect(loadStores(join(root, 'chua-ton-tai'))[0]!.grabMerchantID).toBe('5-AAAAAAAAAA');
+  });
+
+  it('chon quan khac thi ghi de, khong de lai quan cu', () => {
+    luuMaQuan(root, '5-AAAAAAAAAA');
+    luuMaQuan(root, '5-BBBBBBBBBB');
+    const stores = loadStores(root);
+    expect(stores).toHaveLength(1);
+    expect(stores[0]!.grabMerchantID).toBe('5-BBBBBBBBBB');
+  });
+});
+
+/**
+ * Cong cu Windows hay chen BOM vao dau file UTF-8 (Notepad ban cu,
+ * `Set-Content -Encoding utf8` cua PowerShell 5.1). Hai hau qua, ca hai deu
+ * kho lan ra — nhat la voi .env: bo doc cua Node coi kho a dau tien la
+ * "\uFEFFCCMANY_API_URL" nen thieu URL ma KHONG bao loi gi, app am tham chay
+ * o che do kho.
+ */
+describe('file cau hinh co BOM', () => {
+  it('stores.json co BOM van doc duoc', () => {
+    mkdirSync(join(root, 'config'), { recursive: true });
+    writeFileSync(
+      join(root, 'config', 'stores.json'),
+      '\uFEFF' + JSON.stringify({ stores: [{ grabMerchantID: '5-AAAAAAAAAA' }] }),
+      'utf8',
+    );
+    expect(loadStores(root)[0]!.grabMerchantID).toBe('5-AAAAAAAAAA');
+  });
+
+  it('.env co BOM thi duoc sua han o dia, khong chi bo qua luc doc', () => {
+    const duongDan = join(root, '.env');
+    writeFileSync(duongDan, '\uFEFFCCMANY_API_URL=https://x/y\n', 'utf8');
+
+    loadEnvFile(duongDan);
+
+    expect(readFileSync(duongDan, 'utf8').startsWith('\uFEFF')).toBe(false);
+    expect(process.env.CCMANY_API_URL).toBe('https://x/y');
+    delete process.env.CCMANY_API_URL;
+  });
+
+  it('file khong co BOM thi khong bi dung toi', () => {
+    const duongDan = join(root, '.env');
+    const truoc = 'CCMANY_API_KEY=k\n';
+    writeFileSync(duongDan, truoc, 'utf8');
+    loadEnvFile(duongDan);
+    expect(readFileSync(duongDan, 'utf8')).toBe(truoc);
+    delete process.env.CCMANY_API_KEY;
   });
 });

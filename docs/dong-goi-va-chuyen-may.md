@@ -18,9 +18,19 @@ Nên chuyển máy nghĩa là **chép cả thư mục**, không phải chép m�
 
 ---
 
-## 1. Dựng — bấm đôi vào `run.cmd`
+## 1. Dựng
 
-Ở thư mục gốc của dự án. Một file, chạy một phát, làm cả 5 việc:
+Hai cách, cùng một kết quả:
+
+| Cách | Dùng khi |
+|---|---|
+| `npm run portable` | **Cổng chính.** `package.json` là nguồn sự thật, ai biết Node cũng gõ được |
+| Bấm đôi `build.cmd` | Muốn một phát ăn ngay, và có kiểm tra trước khi đóng gói |
+
+Viết bằng `.cmd` chứ không phải `.ps1` vì **Windows không cho bấm đôi vào `.ps1`** — nó mở Notepad,
+để người ta không lỡ chạy script tải trên mạng về.
+
+`build.cmd` làm 5 việc:
 
 ```
 [1/5] Kiểm tra Node.js
@@ -42,6 +52,29 @@ npm test
 npm run portable     # ra release/portable/
 ```
 
+**Bước 4 xoá sạch `release/portable` rồi dựng lại từ đầu.** Nên bản dựng ra luôn giống hệt nhau
+và luôn sạch: không `.env`, không `data/`, không sót gì của lần trước. Đưa cho ai cũng được.
+
+### Cấu hình nằm ở đâu
+
+Bản dựng sạch là tốt, nhưng nó đẻ ra một vấn đề: **cập nhật app = chép đè cả thư mục**, mà `.env`
+với `config/stores.json` lại nằm trong đó. Lần cập nhật đầu tiên sẽ xoá sạch cấu hình — nhân viên
+mở lên thấy "CHẠY KHÔ", không ai hiểu vì sao, và công cụ im lặng không gửi đơn nào nữa.
+
+Nên app **tự giữ một bản ở `%APPDATA%\grab-order-watcher\`**:
+
+```
+có file cạnh .exe   →  chép sang thư mục người dùng rồi đọc bản đó
+không có            →  đọc bản đã lưu ở thư mục người dùng
+không có cả hai     →  không có cấu hình, app tự bật chế độ chạy khô
+```
+
+**File nằm cạnh `.exe` luôn thắng.** Đó là cái người ta nhìn thấy và vừa đặt vào, nên nó phải có
+tác dụng — "cái mình vừa bỏ vào thì thắng" là quy tắc duy nhất không làm ai bất ngờ.
+
+Đã kiểm chứng bằng cách dựng lại thư mục app từ đầu, đúng như một lần cập nhật, rồi chạy: app
+không còn `.env` cạnh `.exe` nhưng vẫn đọc được bản đã lưu và chạy bình thường.
+
 ## 2. Nén thư mục nào?
 
 **`release\portable`** — đúng một thư mục đó, không phải `release`, không phải cả dự án.
@@ -49,7 +82,7 @@ npm run portable     # ra release/portable/
 Nén **nội dung bên trong** nó, để giải nén ra là thấy `Theo doi don Grab.exe` ngay, không phải
 lồng thêm một tầng thư mục nữa.
 
-`run.cmd` hỏi ở cuối và làm đúng như vậy. Muốn làm tay:
+`build.cmd` hỏi ở cuối và làm đúng như vậy. Muốn làm tay:
 
 ```powershell
 Compress-Archive -Path "release\portable\*" -DestinationPath "release\TheoDoiDonGrab.zip" -Force
@@ -68,7 +101,7 @@ Còn khoảng 150 MB. Chép qua USB, hoặc đẩy lên Drive rồi tải về m
 > thì đúng những đơn đó sẽ không bao giờ được gửi nữa. Nếu lỡ nén sau khi chạy thử, xoá `data\`
 > và `.env` đi rồi nén lại.
 >
-> File zip do `run.cmd` tạo đã được kiểm: 119 mục, **không có `.env`, không có `data/`**.
+> File zip do `build.cmd` tạo đã được kiểm: 119 mục, **không có `.env`, không có `data/`**.
 
 ## 3. Trên máy quán
 
@@ -147,7 +180,7 @@ Control tự đánh giá lại. Đã thử ba đường:
 |---|---|
 | Cài bản WASM `@rolldown/binding-wasm32-wasi` | Nạp được, nhưng không phân giải nổi file cấu hình |
 | Đổi đường dẫn sang ổ ảo không có dấu cách (`subst`) | Vẫn hỏng — không phải do dấu cách |
-| **Hạ vitest về bản 3** (dùng esbuild) | ✅ 183 test chạy lại bình thường |
+| **Hạ vitest về bản 3** (dùng esbuild) | ✅ toàn bộ test chạy lại bình thường |
 
 Nên **đừng nâng vitest lên 4** nếu máy dựng còn bật Smart App Control. Đây không phải chuyện
 sở thích phiên bản — nó là ràng buộc của môi trường.
@@ -163,7 +196,7 @@ Trên máy dựng, với Smart App Control **đang bật**:
 - `--tu-chay` → tiến trình sống, không hiện cửa sổ, vào thẳng khay
 - `Tao loi tat ra desktop.cmd` → lối tắt đúng target, đúng icon
 - Khoá tự-chạy ghi đúng tên `Theo doi don Grab`
-- `run.cmd` chạy trọn 5 bước, thoát mã 0, tạo đúng lối tắt, nén ra zip sạch
+- `build.cmd` chạy trọn 5 bước, thoát mã 0, tạo đúng lối tắt, nén ra zip sạch
 - Và nó **đã thật sự chặn một lần**: khi bộ chạy test hỏng, nó dừng ở bước 3 thay vì đóng gói
 
 **Chưa kiểm chứng:** bản NSIS (không dựng được trên máy này), và toàn bộ chuỗi tự khởi động sau

@@ -145,16 +145,27 @@ TELEGRAM_CHAT_ID=...
 > `DRY_RUN=false`. Chốt an toàn này cố ý: không bao giờ để xảy ra cảnh tưởng đang gửi thật mà
 > thực ra đang bắn vào hư không, hoặc ngược lại.
 
-**b. Sửa `config/stores.json`**: điền đúng `grabMerchantID` của quán, `ccmanyStoreID`, và tên quán.
+> Mẹo: mở app rồi bấm **Mở file cấu hình** — app tự tạo `.env` từ mẫu và mở Notepad luôn. Bỏ được
+> khâu đi tìm thư mục trong `AppData` và khâu đổi tên file, chỗ Notepad hay lưu thành `.env.txt`.
 
-**Kiểm chứng:** mở app → dashboard phải hiện đúng tên quán và mã quán.
+**b. Mã quán Grab thì KHÔNG phải điền.** App tự đọc từ tab Grab — xem bước 7.
+
+**Kiểm chứng:** mở app → dashboard hiện đúng chế độ gửi và trạng thái Telegram vừa điền.
 
 ---
 
 ## 7. Đăng nhập Grab lần đầu
 
-Mở app → bấm **Mở trang Grab / Đăng nhập** → đăng nhập bằng tài khoản merchant của quán.
-Xong thì bấm **Ẩn đi**.
+Mở app. Lần đầu nó hiện khung **"Chưa chọn quán"**:
+
+1. Bấm **Mở Grab để chọn quán**
+2. Đăng nhập bằng tài khoản merchant của quán
+3. Bấm vào quán của bạn — Grab đưa tới trang đơn hàng của quán đó
+
+App đọc mã quán thẳng từ địa chỉ trang đó (`/order/<mã>/preparing`) rồi hiện ra để xác nhận.
+Bấm **Dùng quán này** → app khởi động lại và bắt đầu theo dõi.
+
+> Không ai phải gõ tay chuỗi 16 ký tự. Đó là chỗ sai nhiều nhất khi cài.
 
 Phiên đăng nhập nằm ở `%APPDATA%\grab-order-watcher\Partitions\grab`, tồn tại qua các lần tắt mở.
 
@@ -198,6 +209,53 @@ Telegram báo đã khởi động. Không cần ai gõ gì cả.
 
 Nếu thiếu bất kỳ mắt xích nào — BIOS, mật khẩu Windows, `AUTO_START` — thì phép thử này sẽ trượt
 và bạn biết ngay là trượt ở đâu.
+
+---
+
+## Gỡ ra khỏi máy
+
+Ba đường vào, dùng cái nào cũng ra cùng một kết quả:
+
+- Mở app → kéo xuống cuối bảng điều khiển → **Gỡ cài đặt khỏi máy này**
+- **Settings → Apps → Installed apps → "Theo dõi đơn Grab" → Uninstall** — chỗ người dùng
+  Windows theo phản xạ đi tìm
+- Hoặc bấm đúp **`Go cai dat.cmd`** trong thư mục cài — dùng khi app không mở lên được nữa
+
+Cả ba đều hỏi một câu trước khi làm: **có giữ lại phiên đăng nhập Grab không.**
+
+| | Giữ lại (mặc định) | Không giữ |
+|---|---|---|
+| Thư mục cài, lối tắt, mục tự chạy cùng Windows | xoá | xoá |
+| `%APPDATA%\grab-order-watcher` — cấu hình + phiên đăng nhập Grab | **giữ** | xoá |
+| Cài lại lần sau | mở lên là chạy | phải đăng nhập Grab và chọn quán lại |
+
+> **Đừng xoá thư mục cài bằng tay.** Làm thế sẽ bỏ sót hai khoá registry: mục tự chạy cùng
+> Windows, và mục trong Settings. Từ đó mỗi lần bật máy Windows lại đi gọi một file không
+> còn tồn tại, và trong Settings vẫn còn một mục ma mà bấm Uninstall thì không có gì xảy ra
+> — cũng không có cách nào dọn nó từ giao diện Settings.
+
+App tự ghi mục Settings mỗi lần khởi động (`HKCU\...\Uninstall\TheoDoiDonGrab`, không cần
+quyền quản trị). Cố ý ghi lại mỗi lần: chép thư mục app sang chỗ khác thì đường dẫn cũ thành
+rác, ghi đè mỗi lần thì nó tự sửa.
+
+<details>
+<summary>Vì sao app không tự xoá được chính nó</summary>
+
+Windows khoá file `.exe` đang chạy và các DLL đã nạp. Xoá thư mục cài từ bên trong app thì
+xoá được gần hết rồi kẹt lại đúng file thực thi — để lại một bản cài không chạy được mà vẫn
+chiếm chỗ, và người dùng không hiểu chuyện gì vừa xảy ra.
+
+Nên cái nút trong app chỉ làm ba việc: hỏi, đẩy `Go cai dat.cmd` ra `%TEMP%` (ra ngoài thư mục
+sắp bị xoá), chạy nó rồi thoát. Script tự đợi tiến trình app chết hẳn — tối đa 10 giây, quá
+thì tắt cứng — rồi mới bắt đầu xoá. Cùng lý do đó, script cũng tự chép mình sang `%TEMP%` khi
+người dùng bấm đúp vào nó từ trong thư mục cài: `cmd.exe` giữ handle lên chính file `.cmd`
+đang chạy.
+
+Trước mọi lệnh xoá, script kiểm tra thư mục được chỉ định có chứa
+`resources\app\out\main\main.js` không. Không có thì dừng, không xoá gì cả. Đó là hàng rào
+duy nhất giữa một lệnh `rmdir /s /q` và một thư mục người dùng không hề muốn mất.
+
+</details>
 
 ---
 
