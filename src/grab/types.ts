@@ -154,3 +154,14 @@ export interface GrabOpenStatusResponse {
     statusContent?: string;
   };
 }
+
+// ── Danh sach quan trong nhom ────────────────────────────────────────────────
+// GET /delvplatformapi/merchant/v1/merchant-group/store/search
+
+/**
+ * CHUA PIN KIEU. Endpoint nay vua tim ra bang DEV_GHI_MANG va chua co fixture,
+ * nen chua biet chac ten truong. De long de doc duoc ma khong doan bua; phep
+ * thu se in ra hinh dang that, va luc do moi khai bao dung nhu cach da lam voi
+ * don hang (chi khai nhung truong thuc su dung).
+ */
+export type GrabStoreSearchResponse = Record<string, unknown>;

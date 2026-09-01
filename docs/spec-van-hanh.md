@@ -421,10 +421,47 @@ Cookie là **của tài khoản**, không phải của từng quán. Mã quán �
 **Một tab phục vụ tất cả các quán.** Thêm quán không tốn thêm RAM, chỉ tốn thêm request.
 Các quán poll **lệch pha nhau** (quán thứ n bắt đầu trễ `n × 5s/số_quán`) để không dồn cục.
 
-> **Cần kiểm chứng khi có quán thứ hai**: API có chấp nhận `merchantID` của quán B trong khi
-> tab đang mở trang của quán A không? Về lý thuyết có, vì mã quán nằm tường minh trong request.
-> Nếu bị `403` thì rơi về phương án dự phòng: **mỗi quán một tab**, cùng profile — vẫn chỉ một
-> lần đăng nhập, chỉ tốn thêm ~50MB RAM mỗi tab.
+> **ĐÃ KIỂM CHỨNG — 01/09/2026, tài khoản 14 quán.** Bảy lần thử, bảy quán khác nhau: cửa sổ
+> đang mở trang quán X, gọi `open-status` và `orders-pagination` bằng `merchantID` của quán Y
+> — **cả bảy đều 200**. Một tab phục vụ được tất cả. Phương án dự phòng "mỗi quán một tab"
+> không cần tới.
+>
+> Chạy bằng `DEV_THU_CHEO=true` ([thu-cheo.ts](../src/main/thu-cheo.ts)): bật cờ rồi bấm sang
+> một quán khác trong cửa sổ Grab, kết luận in thẳng vào nhật ký.
+>
+> Một cái bẫy khi đọc kết quả: mã quán **không thuộc tài khoản đang đăng nhập** trả về `400`
+> chứ không phải `401`. Lần đo đầu tiên trượt vì đúng chuyện đó — cấu hình còn trỏ vào quán
+> của tài khoản cũ, nên mọi lời gọi đều `400` kể cả khi cửa sổ đang mở đúng quán ấy. Thấy
+> `400` thì kiểm tra mã quán có nằm trong nhóm không, trước khi kết luận gì về chéo quán.
+
+**Không có API trả đơn của tất cả quán trong một lời gọi.** Trang "Tất cả các cửa hàng"
+(`/order`) chỉ là bảng chọn: nó gọi `merchant-group/store/search` để lấy danh sách, còn đơn thì
+vẫn lấy từng quán qua `orders-pagination?merchantID=…`. Nên poll từng quán là bắt buộc, và
+việc rải lệch pha ở trên không phải tối ưu hoá mà là điều kiện cần khi số quán tăng.
+
+### 7.1b Lấy danh sách quán tự động
+
+```
+GET /delvplatformapi/merchant/v1/merchant-group/store/search
+      ?offset=0&limit=100&cityIDs=ALL&includeInactive=true&search=&asc=true
+```
+
+Trả về, ở cấp **nhóm** chứ không phải cấp quán:
+
+```jsonc
+{
+  "merchantGroupID": "VNMG…",
+  "merchants": [
+    { "merchantID": "5-…", "merchantName": "…", "city": "…", "address": "…",
+      "status": "…", "modelType": "…", "menuDisplayOption": "…",
+      "timezone": "…", "deliverOption": "…" }
+  ]
+}
+```
+
+Một lời gọi ra hết mã lẫn **tên thật**. Nghĩa là bảng chọn quán không cần ai gõ mã, và `status`
+cho phép bỏ qua quán đã ngừng hoạt động. `limit=100` lấy theo đúng trang Grab; trên 100 quán
+thì phải phân trang bằng `offset`.
 
 ### 7.2 File cấu hình là nguồn sự thật duy nhất
 

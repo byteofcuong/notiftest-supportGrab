@@ -22,6 +22,9 @@ const PORTAL_URL = 'https://merchant.grab.com/';
 const ORDERS_URL = (merchantID: string | null) =>
   merchantID ? `https://merchant.grab.com/order/${merchantID}/preparing` : PORTAL_URL;
 
+/** Duoi file cua tai nguyen tinh — bo qua khi ghi lai loi goi mang. */
+const TEP_TINH = /\.(?:js|mjs|css|png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|eot|map)$/i;
+
 export interface GrabWindowOptions {
   /** null khi chua thiet lap xong — cua so se mo trang chu cong Grab. */
   merchantID: string | null;
@@ -30,6 +33,8 @@ export interface GrabWindowOptions {
   onHidden?: () => void;
   /** Duong dan icon.ico. Bo trong thi cua so mang icon Electron mac dinh. */
   icon?: string;
+  /** Goi khi trang Grab chuyen sang mot quan khac quan lan truoc. */
+  onMaQuanMoi?: (maQuan: string) => void;
 }
 
 export class GrabWindow {
@@ -150,6 +155,7 @@ export class GrabWindow {
       if (ma && ma !== this.maQuanThayGanNhat) {
         this.maQuanThayGanNhat = ma;
         this.options.logger.info('Thay ma quan tren trang Grab', ma);
+        this.options.onMaQuanMoi?.(ma);
       }
     };
     window.webContents.on('did-navigate', ghiNhanUrl);
@@ -168,7 +174,23 @@ export class GrabWindow {
     });
 
     this.window = window;
-    await window.loadURL(ORDERS_URL(this.options.merchantID));
+    // loadURL() NEM LOI khi lan dieu huong bi thay the giua chung — ma do la
+    // chuyen binh thuong o day: Grab la SPA va no hay da thang sang trang dang
+    // nhap hoac /profile/logout ngay khi trang dau vua bat dau tai. Chromium
+    // goi do la ERR_ABORTED.
+    //
+    // De loi nay noi ra ngoai thi ca chuoi lap rap trong whenReady dut giua
+    // chung: khong tao GrabClient, khong bat poller, khong bat resilience — app
+    // mo len trong nhu binh thuong nhung khong bao gio lay mot don nao, va dau
+    // vet duy nhat la mot dong unhandledRejection. Da dam phai that.
+    //
+    // Cua so van dung duoc sau khi tai hong: nguoi dung dang nhap lai la no vao
+    // dung cho. Nen o day chi ghi lai roi di tiep.
+    try {
+      await window.loadURL(ORDERS_URL(this.options.merchantID));
+    } catch (err) {
+      this.options.logger.warn('Trang Grab tai khong tron lan dau - van mo cua so', err);
+    }
     return window;
   }
 
@@ -258,6 +280,35 @@ export class GrabWindow {
    * that. Luu y: chi cat mang cua Chromium — `fetch` tu Node (ccmany, Telegram)
    * van chay binh thuong, nen kich ban nay KHONG kiem chung duoc hang cho gui bu.
    */
+  /**
+   * Ghi lai moi loi goi API ma TRANG GRAB tu goi, de biet no dung endpoint nao.
+   *
+   * Day la cach khao sat khong can HAR: mo mot trang trong cua so Grab, xem
+   * trong nhat ky no goi gi. Dung de tra loi nhung cau nhu "trang /order lay
+   * danh sach cua hang tu dau" va "co API nao tra don cua TAT CA quan khong".
+   *
+   * Dung `onCompleted` chu khong phai `onBeforeRequest`: cai kia da bi
+   * gioLapMatMang() chiem, va o day con can biet ca ma HTTP tra ve.
+   *
+   * CHI ghi phuong thuc, ma HTTP va URL. KHONG ghi than phan hoi — trong do co
+   * ten va so dien thoai khach.
+   */
+  ghiLaiLoiGoiMang(bat: boolean): void {
+    const phien = session.fromPartition(PARTITION);
+    if (!bat) {
+      phien.webRequest.onCompleted({ urls: ['*://*.grab.com/*'] }, null);
+      return;
+    }
+    phien.webRequest.onCompleted({ urls: ['*://*.grab.com/*'] }, (chiTiet) => {
+      // Loc theo duoi file chu khong theo resourceType: Electron ban nay khong
+      // co loai 'xhr' hay 'fetch' trong kieu, loi goi du lieu roi vao 'other'
+      // lan voi moi thu khac. Loc duoi file thi don gian va khong sai.
+      if (TEP_TINH.test(new URL(chiTiet.url).pathname)) return;
+      this.options.logger.info(`MANG ${chiTiet.method} ${chiTiet.statusCode} ${chiTiet.url}`);
+    });
+    this.options.logger.warn('DEV_GHI_MANG: dang ghi lai moi loi goi API cua trang Grab');
+  }
+
   async gioLapMatMang(matMang: boolean): Promise<void> {
     const phien = session.fromPartition(PARTITION);
     if (matMang) {

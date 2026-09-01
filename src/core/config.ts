@@ -53,6 +53,10 @@ export interface AppConfig {
   autoStart: boolean;
   /** Chu dong ngat mang de thu tu phuc hoi. CHI dung khi phat trien. */
   devChaos: boolean;
+  /** Thu goi API quan nay bang ma quan kia. Chi dung luc khao sat, xem thu-cheo.ts. */
+  devThuCheo: boolean;
+  /** Ghi lai moi loi goi API ma trang Grab tu goi. Chi dung luc khao sat. */
+  devGhiMang: boolean;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
 
   /** Goc cho data/cache, data/raw, data/dry-run. */
@@ -145,6 +149,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, root = process.
     orderNumberWithDate: readBool(env.ORDER_NUMBER_WITH_DATE, false),
     autoStart: readBool(env.AUTO_START, true),
     devChaos: readBool(env.DEV_CHAOS, false),
+    devThuCheo: readBool(env.DEV_THU_CHEO, false),
+    devGhiMang: readBool(env.DEV_GHI_MANG, false),
     logLevel: readLogLevel(env.LOG_LEVEL),
     dataDir: resolve(root, 'data'),
     warnings,

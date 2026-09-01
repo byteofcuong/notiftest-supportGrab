@@ -18,6 +18,7 @@ import { AppTray } from './tray.js';
 import { dangKyGoCaiDat } from './registry.js';
 import { Resilience } from './resilience.js';
 import { chayKichBanPhaHoai } from './chaos.js';
+import { chayVaGhiKetLuan } from './thu-cheo.js';
 import { GrabClient, SessionExpiredError } from '../grab/client.js';
 import { OrderCache } from '../core/cache.js';
 import { CcmanyUploader } from '../core/uploader.js';
@@ -494,7 +495,17 @@ app.whenReady().then(async () => {
     logger,
     onHidden: moBangDieuKhien,
     icon: ICON,
+    // Chi khi DEV_THU_CHEO=true. Bam sang mot quan khac trong cua so Grab la
+    // phep thu tu chay, ket luan nam trong nhat ky. Xem thu-cheo.ts.
+    onMaQuanMoi: (ma) => {
+      const daChon = stores[0]?.grabMerchantID;
+      if (!config.devThuCheo || !grabClient || !daChon || ma === daChon) return;
+      void chayVaGhiKetLuan(grabClient, ma, daChon, logger);
+    },
   });
+  // Bat TRUOC khi mo trang, khong thi bo lo dung nhung loi goi luc tai lan dau.
+  if (config.devGhiMang) grabWindow.ghiLaiLoiGoiMang(true);
+
   await grabWindow.open();
   logger.info('Cua so Grab da san sang', {
     url: grabWindow.currentUrl(),
@@ -580,6 +591,17 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createControlWindow();
   });
+}).catch((err) => {
+  // Luoi an toan cho ca chuoi lap rap o tren.
+  //
+  // Khong co no thi mot loi bat ky giua chung se dut lang: cua so van hien,
+  // bieu tuong khay van xanh, ma GrabClient chua duoc tao nen khong co don nao
+  // duoc lay — va dau vet duy nhat la mot dong unhandledRejection lan giua
+  // nhat ky. Da xay ra that: `loadURL` nem ERR_ABORTED khi Grab da sang trang
+  // logout, va ca poller lan resilience deu khong bao gio khoi dong.
+  //
+  // Khong sua duoc tu day, nhung PHAI noi that to.
+  logger?.error('KHOI DONG THAT BAI - app KHONG theo doi don nao. Mo lai app.', err);
 });
 
 /**

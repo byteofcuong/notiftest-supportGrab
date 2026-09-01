@@ -17,6 +17,7 @@
  */
 
 import type {
+  GrabStoreSearchResponse,
   GrabOpenStatusResponse,
   GrabOrderDetailResponse,
   GrabOrderListResponse,
@@ -123,6 +124,33 @@ export class GrabClient {
    * xong roi moi chuyen huong sang trang dang nhap, nen co mot khoang thoi
    * gian URL van tro nhu binh thuong.
    */
+  /**
+   * Danh sach quan cua CA NHOM merchant, kem ten that.
+   *
+   * Endpoint cap nhom, khong phai cap quan — tim ra bang cach ghi lai loi goi
+   * cua trang "Tat ca cac cua hang" (DEV_GHI_MANG). Mot loi goi lay het, nen
+   * khong phai go tay ma quan nao, va ten hien thi la ten that cua quan chu
+   * khong phai chuoi ma 16 ky tu.
+   *
+   * `limit=100` lay theo dung trang Grab. Tren 100 quan thi phai phan trang
+   * bang `offset` — chua lam vi chua co ai toi nguong do.
+   */
+  async danhSachQuanTrongNhom(merchantID: string): Promise<GrabStoreSearchResponse> {
+    const query = new URLSearchParams({
+      offset: '0',
+      limit: '100',
+      search: '',
+      includeItemsWithoutPhotosCount: 'false',
+      includeInactive: 'true',
+      cityIDs: 'ALL',
+      asc: 'true',
+    });
+    return this.get<GrabStoreSearchResponse>(
+      `${API}/delvplatformapi/merchant/v1/merchant-group/store/search?${query}`,
+      merchantID,
+    );
+  }
+
   async openStatus(merchantID: string): Promise<GrabOpenStatusResponse> {
     return this.get<GrabOpenStatusResponse>(
       `${API}/food/merchant/v3/open-status`,
