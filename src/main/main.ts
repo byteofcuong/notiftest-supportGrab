@@ -68,6 +68,45 @@ if (process.env.ELECTRON_RUN_AS_NODE) {
 // nhap lai va chon quan lai, ma khong hieu vi sao chi doi cai ten.
 app.setName('grab-order-watcher');
 
+/**
+ * Chi cho phep MOT ban chay cung luc.
+ *
+ * Khong phai chuyen lich su: hai ban chay song song deu tro vao cung mot thu
+ * muc phien `%APPDATA%\grab-order-watcher\Partitions\grab`, va hai Chromium
+ * ghi chung mot kho cookie thi giam len nhau. Grab xoay token dinh ky; ban A
+ * lam moi xong ghi cookie moi xuong dia, ban B van giu token cu trong bo nho va
+ * nam phut sau ghi de token cu len tren. Loi goi tiep theo cua ban nao cung an
+ * 401, va nguoi dung chi thay "mat phien Grab" ma khong hieu vi sao.
+ *
+ * Da xay ra that trong lua khao sat: mot ban da cai va mot ban portable cung
+ * chay, phien chet trong vong mot ngay. Voi nhieu quan thi thiet hai nhan len
+ * dung bang so quan.
+ *
+ * Dat TRUOC app.whenReady(): khong lay duoc khoa thi thoat ngay, truoc khi kip
+ * tao cua so hay dung toi thu muc phien.
+ */
+if (!app.requestSingleInstanceLock()) {
+  // Khong ghi nhat ky o day: logger chua duoc tao, va ghi vao cung file voi ban
+  // dang chay thi chi lam nhieu nhat ky cua no.
+  app.quit();
+  process.exit(0);
+}
+
+/**
+ * Nguoi dung bam loi tat lan nua trong khi app dang chay.
+ *
+ * Khong lam gi ca thi ho tuong bam hut roi bam tiep vai lan nua. Dua cua so
+ * dang chay len la cau tra loi dung: app von an minh o khay, nen "khong thay
+ * gi" la trang thai binh thuong cua no.
+ */
+app.on('second-instance', () => {
+  // Ghi lai: tren may quan, thay dong nay lap di lap lai nghia la nhan vien
+  // dang bam loi tat vi tuong app chua chay — dau hieu can lam ro giao dien
+  // chu khong phai loi ky thuat.
+  logger?.info('Da co mot ban dang chay - dua bang dieu khien len');
+  moBangDieuKhien();
+});
+
 // Goc du an. Khi da dong goi thanh .exe thi __dirname nam trong asar, nen lay
 // thu muc chua file thuc thi de .env va config/ van sua duoc sau khi cai.
 const ROOT = app.isPackaged ? path.dirname(app.getPath('exe')) : path.resolve(__dirname, '../..');
