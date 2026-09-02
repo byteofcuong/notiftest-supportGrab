@@ -162,14 +162,23 @@ TELEGRAM_CHAT_ID=...
 
 Mở app. Lần đầu nó hiện khung **"Chưa chọn quán"**:
 
-1. Bấm **Mở Grab để chọn quán**
-2. Đăng nhập bằng tài khoản merchant của quán
-3. Bấm vào quán của bạn — Grab đưa tới trang đơn hàng của quán đó
+1. Bấm **Mở trang Grab / Đăng nhập**
+2. Đăng nhập bằng tài khoản merchant
+3. Bấm vào một quán bất kỳ — Grab đưa tới trang đơn hàng của quán đó
+4. Quay lại bảng điều khiển, bấm **Lấy danh sách quán**
 
-App đọc mã quán thẳng từ địa chỉ trang đó (`/order/<mã>/preparing`) rồi hiện ra để xác nhận.
-Bấm **Dùng quán này** → app khởi động lại và bắt đầu theo dõi.
+App hỏi Grab danh sách **tất cả các quán trong nhóm** và hiện ra kèm **tên thật** và thành phố,
+mỗi quán một ô tick. Tick những quán muốn theo dõi rồi bấm **Lưu N quán và khởi động lại**.
 
-> Không ai phải gõ tay chuỗi 16 ký tự. Đó là chỗ sai nhiều nhất khi cài.
+> Không ai phải gõ tay chuỗi 16 ký tự — đó là chỗ sai nhiều nhất khi cài. Bước 3 chỉ để app có
+> một mã quán hợp lệ làm "chìa" gọi API danh sách; sau đó chọn quán nào là tuỳ bạn.
+
+**Thêm hoặc bớt quán về sau:** vẫn khung đó, bấm **Lấy lại danh sách**, sửa tick, lưu lại. App
+khởi động lại và theo dõi đúng danh sách mới.
+
+> ⚠️ Quán đang theo dõi mà Grab **không** trả về nữa (bị gỡ khỏi nhóm, đổi chủ) vẫn hiện ra,
+> vẫn tick sẵn, kèm nhãn cảnh báo. Cố ý như vậy: bỏ nó khỏi bảng thì bạn bấm Lưu và mất quán đó
+> mà không hề thấy mình vừa bỏ đi cái gì.
 
 Phiên đăng nhập nằm ở `%APPDATA%\grab-order-watcher\Partitions\grab`, tồn tại qua các lần tắt mở.
 

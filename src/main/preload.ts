@@ -65,6 +65,23 @@ export interface PollerStats {
   donGanNhat: { orderCode: string; total: number | null; at: string } | null;
 }
 
+/** Mot dong trong bang chon quan. Moi quyet dinh da lam o main/chon-quan.ts. */
+export interface DongChonQuan {
+  merchantID: string;
+  tenHienThi: string;
+  city: string | null;
+  daTick: boolean;
+  /** Nhan phu hien canh ten (vd "da ngung hoat dong"). null khi binh thuong. */
+  nhan: string | null;
+}
+
+export interface KetQuaDanhSachQuan {
+  ok: boolean;
+  quan: DongChonQuan[];
+  thongBao: string | null;
+  canDangNhap: boolean;
+}
+
 /** Ket qua goi thu API Grab — cach duy nhat dang tin de biet phien con song. */
 export interface ProbeResult {
   at: string;
@@ -84,8 +101,11 @@ contextBridge.exposeInMainWorld('api', {
   togglePoller: (): Promise<void> => ipcRenderer.invoke('poller:toggle'),
   openLog: (): Promise<void> => ipcRenderer.invoke('log:open'),
   openConfig: (): Promise<void> => ipcRenderer.invoke('config:open'),
-  saveStore: (maQuan: string): Promise<{ ok: boolean; loi?: string }> =>
-    ipcRenderer.invoke('store:save', maQuan),
+  /** Danh sach quan trong nhom, da ghep san voi lua chon hien tai. */
+  listStores: (): Promise<KetQuaDanhSachQuan> => ipcRenderer.invoke('store:list'),
+  /** Luu lua chon roi khoi dong lai. Truyen dung nhung dong da tick. */
+  saveStores: (quan: DongChonQuan[]): Promise<{ ok: boolean; loi?: string }> =>
+    ipcRenderer.invoke('store:save', quan),
   /** `ok:false` khong kem `loi` nghia la nguoi dung bam Huy — khong phai that bai. */
   goCaiDat: (): Promise<{ ok: boolean; loi?: string }> => ipcRenderer.invoke('app:go-cai-dat'),
 });

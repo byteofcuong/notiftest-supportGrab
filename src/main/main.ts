@@ -19,6 +19,12 @@ import { dangKyGoCaiDat } from './registry.js';
 import { Resilience } from './resilience.js';
 import { chayKichBanPhaHoai } from './chaos.js';
 import { chayVaGhiKetLuan } from './thu-cheo.js';
+import {
+  chuaCoMaQuan,
+  ketQuaDanhSach,
+  ketQuaLoi,
+  maQuanDeGoiApi,
+} from './chon-quan.js';
 import { GrabClient, SessionExpiredError } from '../grab/client.js';
 import { OrderCache } from '../core/cache.js';
 import { CcmanyUploader } from '../core/uploader.js';
@@ -28,6 +34,8 @@ import { gopTrangThai, treKhoiDauMs } from '../core/tong-hop.js';
 import type { AppConfig } from '../core/config.js';
 import type { StoreConfig } from '../core/types.js';
 import type { TrangThaiQuan } from '../core/tong-hop.js';
+import type { KetQuaDanhSachQuan } from './chon-quan.js';
+import type { QuanDaChon } from '../core/config.js';
 
 /**
  * Diem vao cua app.
@@ -412,14 +420,16 @@ async function goCaiDat(): Promise<{ ok: boolean; loi?: string }> {
  * de sot mot manh la sinh ra loi chi hien ra sau vai gio. Khoi dong lai mat ba
  * giay va khong bo sot gi.
  */
-function luuVaKhoiDongLai(maQuan: string): { ok: boolean; loi?: string } {
-  const ma = maQuan.trim();
-  if (!ma) return { ok: false, loi: 'Chua nhan duoc ma quan nao' };
+function luuVaKhoiDongLai(quan: QuanDaChon[]): { ok: boolean; loi?: string } {
+  if (quan.length === 0) return { ok: false, loi: 'Chua chon quan nao' };
   try {
-    luuDanhSachQuan(app.getPath('userData'), [{ grabMerchantID: ma }]);
-    logger.info('Da luu ma quan, dang khoi dong lai', ma);
+    luuDanhSachQuan(app.getPath('userData'), quan);
+    logger.info(
+      `Da luu ${quan.length} quan, dang khoi dong lai`,
+      quan.map((q) => q.grabMerchantID),
+    );
   } catch (err) {
-    logger.error('Khong luu duoc ma quan', err);
+    logger.error('Khong luu duoc danh sach quan', err);
     return { ok: false, loi: (err as Error).message };
   }
   choPhepThoat = true;
@@ -516,8 +526,39 @@ function registerIpc(): void {
   ipcMain.handle('config:open', () => {
     moFileCauHinh();
   });
-  ipcMain.handle('store:save', (_e, maQuan: unknown) => {
-    return luuVaKhoiDongLai(typeof maQuan === 'string' ? maQuan : '');
+  /**
+   * Danh sach quan trong nhom, da ghep san voi lua chon hien tai.
+   *
+   * Giao dien chi ve ra, khong quyet dinh gi — moi quyet dinh o chon-quan.ts,
+   * noi test duoc ma khong can jsdom.
+   */
+  ipcMain.handle('store:list', async (): Promise<KetQuaDanhSachQuan> => {
+    const daChon = stores.map((s) => s.grabMerchantID);
+    const ma = maQuanDeGoiApi(daChon, grabWindow?.maQuanPhatHien() ?? null);
+    if (ma === null || !grabClient) return chuaCoMaQuan();
+    try {
+      const phanHoi = await grabClient.danhSachQuanTrongNhom(ma);
+      const kq = ketQuaDanhSach(phanHoi, daChon);
+      logger.info(`Doc danh sach quan trong nhom: ${kq.quan.length} quan`, { goiBang: ma });
+      return kq;
+    } catch (err) {
+      logger.warn('Khong lay duoc danh sach quan trong nhom', err);
+      return ketQuaLoi(err);
+    }
+  });
+
+  ipcMain.handle('store:save', (_e, quan: unknown) => {
+    // Du lieu tu tien trinh giao dien: loc lai o day chu khong tin.
+    const ds = Array.isArray(quan)
+      ? quan
+          .filter((q): q is { merchantID: unknown; tenHienThi?: unknown } => typeof q === 'object' && q !== null)
+          .map((q) => ({
+            grabMerchantID: typeof q.merchantID === 'string' ? q.merchantID : '',
+            storeName: typeof q.tenHienThi === 'string' ? q.tenHienThi : '',
+          }))
+          .filter((q) => q.grabMerchantID.trim() !== '')
+      : [];
+    return luuVaKhoiDongLai(ds);
   });
   ipcMain.handle('app:go-cai-dat', () => goCaiDat());
 }

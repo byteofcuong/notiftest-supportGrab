@@ -76,25 +76,99 @@ async function refresh() {
   }
 }
 
+/** Đang mở bảng chọn — để refresh() định kỳ không ghi đè lên thao tác dở dang. */
+let dangChon = false;
+
 /**
- * Khung "chưa chọn quán" chỉ hiện ở lần chạy đầu, và tự biến mất khi đã chọn.
+ * Bảng chọn quán.
  *
- * Mã quán đọc thẳng từ URL của tab Grab — chỗ người dùng vốn đã bấm vào. Bỏ
- * được khâu gõ tay một chuỗi 16 ký tự, vốn là chỗ sai nhiều nhất khi cài.
+ * Mọi QUYẾT ĐỊNH — dòng nào tick sẵn, câu nào hiện khi hỏng, quán nào phải
+ * hiện dù Grab không trả về — nằm ở `src/main/chon-quan.ts`, nơi test được mà
+ * không cần jsdom. Ở đây chỉ còn việc vẽ ra.
  */
 function capNhatChonQuan(status) {
   // Ban dev khong go duoc (thu muc "app" chinh la node_modules/electron/dist),
   // nen an han cai nut di thay vi de no bao loi khi bam.
   $('khu-go').hidden = !status.daCaiDat;
 
-  const khung = $('chuachon');
-  khung.hidden = Boolean(status.merchantID);
-  if (khung.hidden) return;
+  // Chưa chọn quán nào thì nói to hơn: đây là việc bắt buộc của lần chạy đầu,
+  // không phải một mục cài đặt tuỳ chọn.
+  const chuaChon = !status.merchantID;
+  set('chonquan-tieude', chuaChon ? 'Chưa chọn quán' : 'Quán theo dõi');
+  if (chuaChon && !dangChon) {
+    $('chonquan-huong').innerHTML =
+      'Bấm <b>Mở trang Grab / Đăng nhập</b> để đăng nhập, rồi bấm ' +
+      '<b>Lấy danh sách quán</b> để chọn quán của bạn.';
+  }
+}
 
-  const ma = status.maQuanPhatHien;
-  set('maquan', ma ?? 'chưa có — hãy mở Grab và bấm vào quán');
-  $('btn-dung-quan').disabled = !ma;
-  $('btn-dung-quan').textContent = ma ? `Dùng quán ${ma}` : 'Dùng quán này';
+function veDanhSachQuan(ketQua) {
+  const hop = $('ds-quan');
+  hop.innerHTML = '';
+
+  for (const q of ketQua.quan) {
+    const dong = document.createElement('div');
+    dong.className = 'dongquan';
+
+    const nhan = document.createElement('label');
+
+    const o = document.createElement('input');
+    o.type = 'checkbox';
+    o.checked = q.daTick;
+    o.dataset.ma = q.merchantID;
+    o.dataset.ten = q.tenHienThi;
+    o.addEventListener('change', capNhatNutLuu);
+    nhan.appendChild(o);
+
+    const ten = document.createElement('span');
+    ten.textContent = q.tenHienThi;
+    nhan.appendChild(ten);
+
+    if (q.city) {
+      const tp = document.createElement('span');
+      tp.className = 'thanhpho';
+      tp.textContent = q.city;
+      nhan.appendChild(tp);
+    }
+    if (q.nhan) {
+      const n = document.createElement('span');
+      n.className = 'nhan';
+      n.textContent = `⚠ ${q.nhan}`;
+      nhan.appendChild(n);
+    }
+
+    dong.appendChild(nhan);
+    hop.appendChild(dong);
+  }
+
+  hop.hidden = ketQua.quan.length === 0;
+  $('btn-luu-quan').hidden = ketQua.quan.length === 0;
+  capNhatNutLuu();
+
+  const bao = $('chonquan-bao');
+  bao.hidden = !ketQua.thongBao;
+  bao.textContent = ketQua.thongBao ?? '';
+}
+
+function quanDaTick() {
+  return [...$('ds-quan').querySelectorAll('input:checked')].map((o) => ({
+    merchantID: o.dataset.ma,
+    tenHienThi: o.dataset.ten,
+  }));
+}
+
+/**
+ * Không quán nào được tick thì khoá nút Lưu.
+ *
+ * Lưu danh sách rỗng nghĩa là ngừng theo dõi tất cả, và `luuDanhSachQuan()`
+ * ném lỗi thay vì ghi đè. Khoá ở đây để người dùng thấy ngay lý do thay vì bấm
+ * rồi nhận một câu lỗi khó hiểu.
+ */
+function capNhatNutLuu() {
+  const so = quanDaTick().length;
+  const nut = $('btn-luu-quan');
+  nut.disabled = so === 0;
+  nut.textContent = so === 0 ? 'Chưa chọn quán nào' : `Lưu ${so} quán và khởi động lại`;
 }
 
 /**
@@ -184,26 +258,36 @@ $('btn-go').addEventListener('click', async () => {
 });
 $('btn-cauhinh').addEventListener('click', () => window.api.openConfig());
 
-$('btn-chon-grab').addEventListener('click', async () => {
-  await window.api.showGrabWindow();
-  // Doc lai lien tuc mot lúc: người dùng còn phải đăng nhập rồi bấm vào quán,
-  // và mã chỉ xuất hiện sau khi họ tới trang đơn hàng.
-  for (let i = 0; i < 40; i += 1) {
-    await new Promise((r) => setTimeout(r, 1500));
-    await refresh();
+$('btn-tai-ds').addEventListener('click', async () => {
+  const nut = $('btn-tai-ds');
+  nut.disabled = true;
+  nut.textContent = 'Đang lấy…';
+  try {
+    const ketQua = await window.api.listStores();
+    dangChon = true;
+    veDanhSachQuan(ketQua);
+    if (ketQua.canDangNhap) {
+      $('chonquan-huong').innerHTML =
+        'Bấm <b>Mở trang Grab / Đăng nhập</b> ở khung dưới, đăng nhập xong thì quay lại bấm nút này.';
+    }
+  } finally {
+    nut.disabled = false;
+    nut.textContent = 'Lấy lại danh sách';
   }
 });
 
-$('btn-dung-quan').addEventListener('click', async () => {
-  const ma = $('maquan').textContent;
-  $('btn-dung-quan').disabled = true;
-  $('btn-dung-quan').textContent = 'Đang lưu, app sẽ khởi động lại…';
-  const ketQua = await window.api.saveStore(ma);
+$('btn-luu-quan').addEventListener('click', async () => {
+  const chon = quanDaTick();
+  const nut = $('btn-luu-quan');
+  nut.disabled = true;
+  nut.textContent = 'Đang lưu, app sẽ khởi động lại…';
+  const ketQua = await window.api.saveStores(chon);
   if (!ketQua?.ok) {
-    $('btn-dung-quan').disabled = false;
-    $('btn-dung-quan').textContent = `Lỗi: ${ketQua?.loi ?? 'không rõ'}`;
+    nut.disabled = false;
+    nut.textContent = `Lỗi: ${ketQua?.loi ?? 'không rõ'}`;
   }
 });
+
 $('btn-kiem').addEventListener('click', async () => {
   set('trangthai', 'đang kiểm tra…');
   await window.api.probeGrab();
