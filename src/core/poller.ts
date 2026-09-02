@@ -48,6 +48,18 @@ export interface PollerDeps {
   uploader: CcmanyUploader;
   telegram: TelegramNotifier;
   logger: Logger;
+  /**
+   * Hoan nhip DAU TIEN lai bay nhieu ms. Mac dinh 0 — poll ngay khi start().
+   *
+   * De 14 quan khong ban `orders-pagination` cung mot khoanh khac, cu 5 giay
+   * mot lan. Do lech tao ra o nhip dau duoc giu nguyen ve sau, vi tu do moi
+   * poller tu noi chuoi setTimeout cua rieng no.
+   *
+   * De o day chu khong phai o cho goi start(): nguoi dung bam Tam dung roi bam
+   * Tiep tuc se lam ca 14 poller khoi dong lai cung luc, va do lech rai duoc
+   * luc khoi dong mat sach.
+   */
+  khoiDauTreMs?: number;
   now?: () => number;
   setTimer?: (fn: () => void, ms: number) => NodeJS.Timeout;
   clearTimer?: (timer: NodeJS.Timeout) => void;
@@ -104,7 +116,9 @@ export class StorePoller {
         `[${this.deps.store.ccmanyStoreID}] Khoi dong lanh - chi nhan don trong ${this.deps.config.orderLookbackMinutes} phut gan nhat`,
       );
     }
-    void this.loop();
+    const tre = this.deps.khoiDauTreMs ?? 0;
+    if (tre > 0) this.timer = this.setTimer(() => void this.loop(), tre);
+    else void this.loop();
   }
 
   stop(): void {

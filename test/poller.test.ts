@@ -56,6 +56,9 @@ function build(options: {
   uploadOk?: boolean;
   dryRun?: boolean;
   maxOrderAttempts?: number;
+  khoiDauTreMs?: number;
+  setTimer?: (fn: () => void, ms: number) => NodeJS.Timeout;
+  clearTimer?: (timer: NodeJS.Timeout) => void;
 }) {
   const list = options.list ?? fixture('list-gf547.json');
   const detail = options.detail ?? fixture('detail-gf547.json');
@@ -116,6 +119,9 @@ function build(options: {
     telegram,
     logger: new Logger({ level: 'error' }),
     now: () => dongHo.gioHienTai,
+    khoiDauTreMs: options.khoiDauTreMs,
+    setTimer: options.setTimer,
+    clearTimer: options.clearTimer,
   });
 
   return { poller, cache, executeJavaScript, uploadFetch, telegramFetch, config, dongHo, telegram };
@@ -378,5 +384,79 @@ describe('bao khi phuc hoi', () => {
     await poller.tick();
     await poller.tick();
     expect(tinNhan(telegramFetch).some((t) => t.includes('tro lai'))).toBe(false);
+  });
+});
+
+/**
+ * Rai lech pha diem khoi dau (Task 4).
+ *
+ * Khong rai thi 14 quan cung ban `orders-pagination` trong cung mot phan nghin
+ * giay, cu 5 giay mot lan. Cai tre nay nam trong start() chu khong o cho goi,
+ * de nguoi dung bam Tam dung roi Tiep tuc van giu duoc do lech.
+ */
+describe('khoi dau tre (rai lech pha)', () => {
+  /** Bat timer lai thay vi chay, de biet chinh xac cai gi duoc hen luc nao. */
+  function batTimer() {
+    const hen: { fn: () => void; ms: number }[] = [];
+    return {
+      hen,
+      setTimer: ((fn: () => void, ms: number) => {
+        hen.push({ fn, ms });
+        return hen.length as unknown as NodeJS.Timeout;
+      }) as (fn: () => void, ms: number) => NodeJS.Timeout,
+      clearTimer: () => {},
+    };
+  }
+
+  it('khong dat tre thi poll ngay khi start()', () => {
+    const t = batTimer();
+    const { poller, executeJavaScript } = build({ setTimer: t.setTimer, clearTimer: t.clearTimer });
+    poller.start();
+    // Nhip dau chay ngay, khong qua hen gio.
+    expect(executeJavaScript).toHaveBeenCalled();
+  });
+
+  it('co tre thi nhip dau duoc hen dung bang so ms do', () => {
+    const t = batTimer();
+    const { poller, executeJavaScript } = build({
+      khoiDauTreMs: 1071,
+      setTimer: t.setTimer,
+      clearTimer: t.clearTimer,
+    });
+    poller.start();
+
+    // Chua goi API lan nao — dang cho toi luot cua minh.
+    expect(executeJavaScript).not.toHaveBeenCalled();
+    expect(t.hen).toHaveLength(1);
+    expect(t.hen[0]!.ms).toBe(1071);
+  });
+
+  /**
+   * Trang thai phai la 'dang-chay' NGAY, du nhip dau con dang cho. Neu de
+   * 'dung' thi probeGrab() se tuong poller nay chua chay va bat lai no — bat
+   * lai la mat do lech vua rai.
+   */
+  it('dang cho luot van la dang-chay, khong phai dung', () => {
+    const t = batTimer();
+    const { poller } = build({ khoiDauTreMs: 2000, setTimer: t.setTimer, clearTimer: t.clearTimer });
+    poller.start();
+    expect(poller.stats.state).toBe('dang-chay');
+  });
+
+  // Bam Tam dung roi Tiep tuc: neu tre chi ap mot lan luc lap rap thi ca 14
+  // quan se khoi dong lai cung mot khoanh khac va do lech mat sach.
+  it('dung roi chay lai thi VAN tre nhu cu', () => {
+    const t = batTimer();
+    const { poller, executeJavaScript } = build({
+      khoiDauTreMs: 1500,
+      setTimer: t.setTimer,
+      clearTimer: t.clearTimer,
+    });
+    poller.start();
+    poller.stop();
+    poller.start();
+
+    expect(executeJavaScript).not.toHaveBeenCalled();
+    expect(t.hen.at(-1)!.ms).toBe(1500);
   });
 });

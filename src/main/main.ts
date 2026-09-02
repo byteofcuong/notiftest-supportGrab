@@ -24,8 +24,10 @@ import { OrderCache } from '../core/cache.js';
 import { CcmanyUploader } from '../core/uploader.js';
 import { TelegramNotifier } from '../core/telegram.js';
 import { StorePoller } from '../core/poller.js';
+import { gopTrangThai, treKhoiDauMs } from '../core/tong-hop.js';
 import type { AppConfig } from '../core/config.js';
 import type { StoreConfig } from '../core/types.js';
+import type { TrangThaiQuan } from '../core/tong-hop.js';
 
 /**
  * Diem vao cua app.
@@ -144,7 +146,19 @@ let logger: Logger;
 let controlWindow: BrowserWindow | null = null;
 let grabWindow: GrabWindow | null = null;
 let grabClient: GrabClient | null = null;
-let poller: StorePoller | null = null;
+/**
+ * Moi quan mot poller, khoa theo `grabMerchantID`.
+ *
+ * Tat ca dung CHUNG mot GrabWindow va mot GrabClient — §7.1 da kiem chung: mot
+ * cua so dang mo trang quan X goi duoc API cua quan Y, bay lan thu tren bay
+ * quan khac nhau deu 200. Nen khong can N cua so, va RAM khong tang theo so
+ * quan.
+ *
+ * Map chu khong phai mang: cho nao can "quan nay dang the nao" thi tra cuu
+ * thang bang ma quan, khong phai do lai chi so va hy vong hai mang con cung
+ * thu tu.
+ */
+const pollers = new Map<string, StorePoller>();
 let telegram: TelegramNotifier | null = null;
 let tray: AppTray | null = null;
 let resilience: Resilience | null = null;
@@ -195,9 +209,9 @@ async function probeGrab(): Promise<void> {
 
     // Phien vua song lai (nguoi dung vua dang nhap) thi bat poller luon,
     // khong bat nguoi dung phai bam them nut nao nua.
-    if (poller && poller.stats.state === 'dung' && !nguoiDungDaTamDung) {
-      poller.start();
-      logger.info('Da bat poller sau khi kiem tra ket noi thanh cong');
+    if (!nguoiDungDaTamDung) {
+      const daBat = batLaiPollerDangDung();
+      if (daBat > 0) logger.info(`Da bat ${daBat} poller sau khi kiem tra ket noi thanh cong`);
     }
   } catch (err) {
     const matPhien = err instanceof SessionExpiredError;
@@ -208,22 +222,65 @@ async function probeGrab(): Promise<void> {
   capNhatKhay();
 }
 
+/**
+ * Trang thai tung quan, dung thu tu trong config/stores.json.
+ *
+ * Doc tu `stores` chu khong tu `pollers`: quan da cau hinh ma chua co poller
+ * (lap rap hong giua chung) phai van hien ra, khong duoc bien mat khoi giao
+ * dien nhu the nguoi dung chua he chon no.
+ */
+function trangThaiTungQuan(): TrangThaiQuan[] {
+  return stores.map((s) => ({
+    merchantID: s.grabMerchantID,
+    ccmanyStoreID: s.ccmanyStoreID,
+    storeName: s.storeName,
+    stats: pollers.get(s.grabMerchantID)?.stats ?? {
+      state: 'dung' as const,
+      lastPollAt: null,
+      lastError: null,
+      quanDangMo: null,
+      soDonHomNay: 0,
+      donGanNhat: null,
+    },
+  }));
+}
+
+/** Bat lai nhung poller dang dung. Tra ve so poller vua bat. */
+function batLaiPollerDangDung(): number {
+  let daBat = 0;
+  for (const p of pollers.values()) {
+    if (p.stats.state !== 'dung') continue;
+    p.start();
+    daBat++;
+  }
+  return daBat;
+}
+
+/**
+ * Mot nut cho tat ca cac quan.
+ *
+ * Con quan nao dang chay thi bam la DUNG HET. Chi khi tat ca deu dung thi bam
+ * moi la chay lai — dung nhu chu tren nut ma giao dien dang hien.
+ */
 function batTatTheoDoi(): void {
-  if (!poller) return;
-  if (poller.stats.state === 'dung') {
+  if (pollers.size === 0) return;
+  const dangChay = [...pollers.values()].filter((p) => p.stats.state !== 'dung');
+  if (dangChay.length === 0) {
     nguoiDungDaTamDung = false;
-    poller.start();
-    logger.info('Nguoi dung bat lai theo doi');
+    // Do lech pha tu tro lai: `khoiDauTreMs` duoc doc lai o moi lan start(),
+    // nen bat lai ca 14 quan khong dung lai thanh mot dong nhon.
+    batLaiPollerDangDung();
+    logger.info(`Nguoi dung bat lai theo doi ${pollers.size} quan`);
   } else {
     nguoiDungDaTamDung = true;
-    poller.stop();
-    logger.info('Nguoi dung tam dung theo doi');
+    for (const p of dangChay) p.stop();
+    logger.info(`Nguoi dung tam dung theo doi ${dangChay.length} quan`);
   }
   capNhatKhay();
 }
 
 function capNhatKhay(): void {
-  tray?.capNhat(poller?.stats.state ?? null, lastProbe?.matPhien === true);
+  tray?.capNhat(gopTrangThai(trangThaiTungQuan())?.state ?? null, lastProbe?.matPhien === true);
 }
 
 function moBangDieuKhien(): void {
@@ -407,9 +464,12 @@ function createControlWindow(): void {
 
 function registerIpc(): void {
   ipcMain.handle('status:get', () => {
+    const quan = trangThaiTungQuan();
     const store = stores[0];
     return {
-      storeName: store?.storeName ?? null,
+      // Mot quan thi hien ten quan nhu cu; nhieu quan thi hien so luong, vi
+      // ten cua rieng quan dau tien se noi doi ve 13 quan con lai.
+      storeName: quan.length > 1 ? `${quan.length} quan` : (store?.storeName ?? null),
       merchantID: store?.grabMerchantID ?? null,
       maQuanPhatHien: grabWindow?.maQuanPhatHien() ?? null,
       dryRun: config.dryRun,
@@ -425,7 +485,10 @@ function registerIpc(): void {
       partitionPath: GrabWindow.partitionPath(),
       logPath: logger.filePath,
       lastProbe,
-      poller: poller?.stats ?? null,
+      // Gop N quan thanh mot, de giao dien hien tai chay nguyen khong doi.
+      // Task 7 se ve tung dong quan bang `quan` ngay duoi.
+      poller: gopTrangThai(quan),
+      quan,
       resilience: resilience?.stats ?? null,
       warnings: config.warnings,
     };
@@ -495,7 +558,9 @@ app.whenReady().then(async () => {
   } else {
     logger.info(
       `Doc duoc ${stores.length} quan`,
-      stores.map((s) => `${s.ccmanyStoreID} (${s.storeName})`),
+      // Ten truoc, ma cache sau: cac dong poller ben duoi deu mang tien to
+      // [ccmanyStoreID], nen dong nay la cho duy nhat tra ra "ma do la quan nao".
+      stores.map((s) => `${s.storeName} [${s.ccmanyStoreID}]`),
     );
     // Noi ro thay vi lang le bo qua: chu quan da tung dien o nay va se tuong no
     // van co tac dung. Xem AppConfig.ccmanyStoreID de biet vi sao khong ap duoc.
@@ -569,22 +634,42 @@ app.whenReady().then(async () => {
     });
 
     telegram = new TelegramNotifier({ config: config.telegram });
-    poller = new StorePoller({
-      store,
-      config,
-      client: grabClient,
-      cache: new OrderCache(store.ccmanyStoreID, {
-        dir: path.join(config.dataDir, 'cache'),
-        lookbackMinutes: config.orderLookbackMinutes,
-      }),
-      uploader: new CcmanyUploader({
-        url: config.ccmany.url,
-        apiKey: config.ccmany.apiKey,
-        dryRun: config.dryRun,
-        dataDir: config.dataDir,
-      }),
-      telegram,
-      logger,
+
+    // Mot uploader cho tat ca: no khong giu trang thai rieng cua quan nao, chi
+    // cam URL va kho a. Nhan ban theo quan chi ton bo nho ma khong duoc gi.
+    const uploader = new CcmanyUploader({
+      url: config.ccmany.url,
+      apiKey: config.ccmany.apiKey,
+      dryRun: config.dryRun,
+      dataDir: config.dataDir,
+    });
+
+    for (const [i, s] of stores.entries()) {
+      const tre = treKhoiDauMs(i, stores.length, config.pollIntervalMs);
+      pollers.set(
+        s.grabMerchantID,
+        new StorePoller({
+          store: s,
+          config,
+          // MOT client cho tat ca. GrabClient nhan merchantID theo tung loi goi
+          // chu khong giu san, nen mot the hien phuc vu duoc moi quan.
+          client: grabClient,
+          // Cache thi PHAI rieng: ten file lay tu ccmanyStoreID, va hai quan
+          // chung mot file la tap don da gui cua nhau bi ghi de.
+          cache: new OrderCache(s.ccmanyStoreID, {
+            dir: path.join(config.dataDir, 'cache'),
+            lookbackMinutes: config.orderLookbackMinutes,
+          }),
+          uploader,
+          telegram,
+          logger,
+          khoiDauTreMs: tre,
+        }),
+      );
+    }
+    logger.info(`Da lap ${pollers.size} poller tren MOT cua so Grab`, {
+      nhipMs: config.pollIntervalMs,
+      raiLechPhaMs: stores.map((_, i) => treKhoiDauMs(i, stores.length, config.pollIntervalMs)),
     });
 
     // Kiem tra ngay luc khoi dong: day la cach DUY NHAT dang tin de biet phien
@@ -595,12 +680,22 @@ app.whenReady().then(async () => {
     // luc khoi dong va luc thoat thi mot lan giet cung o giua van mat phien.
     setInterval(() => void grabWindow?.luuPhien(), 5 * 60_000);
 
+    // TAM THOI CHI CANH QUAN DAU TIEN. Resilience van mang hop dong mot quan
+    // (mot `store`, mot `poller`); Task 5 doi no sang canh ca N poller. Noi to
+    // ra o day thay vi de im, vi trong khoang giua hai task nay mot quan khac
+    // bi ket se KHONG duoc tai lai trang.
+    if (stores.length > 1) {
+      logger.warn(
+        `Watchdog tam thoi chi canh quan ${store.storeName} trong ${stores.length} quan - ` +
+          'cac quan con lai chua co lop tu tai lai trang (Task 5)',
+      );
+    }
     resilience = new Resilience({
       config,
       store,
       logger,
       grabWindow,
-      poller,
+      poller: pollers.get(store.grabMerchantID)!,
       telegram,
       probe: probeGrab,
       trangThaiPhien: () => {
@@ -625,11 +720,15 @@ app.whenReady().then(async () => {
     // Ban than poller da xu ly mat phien dung cach roi: gian nhip ra 30s, bao
     // Telegram DUNG MOT LAN, va tu chay lai ngay khi co phien tro lai. De no
     // chay la duong tu phuc hoi ngan nhat.
-    poller.start();
+    for (const p of pollers.values()) p.start();
     if (lastProbe?.ok) {
-      void telegram.sendAlert(
-        `Da khoi dong theo doi ${store.storeName}${config.dryRun ? ' (CHAY KHO)' : ''}`,
-      );
+      // MOT tin cho ca N quan. Ban 14 tin lien tiep luc khoi dong thi nguoi
+      // nhan se tat thong bao cua bot, va tat luon ca canh bao mat phien.
+      const ten =
+        stores.length === 1
+          ? stores[0]!.storeName
+          : `${stores.length} quan (${stores.map((s) => s.storeName).join(', ')})`;
+      void telegram.sendAlert(`Da khoi dong theo doi ${ten}${config.dryRun ? ' (CHAY KHO)' : ''}`);
     } else {
       logger.warn('Khoi dong khi chua co phien Grab - poller van chay va se tu vao khi dang nhap xong');
     }
@@ -710,7 +809,7 @@ function capNhatTuChayCungWindows(): void {
 app.on('before-quit', (event) => {
   choPhepThoat = true;
   resilience?.stop();
-  poller?.stop();
+  for (const p of pollers.values()) p.stop();
   if (grabWindow && !dangThoat) {
     // Hoan thoat mot nhip de kip ghi cookie xuong dia — thoat ngay thi
     // phan chua ghi se mat va lan sau phai dang nhap lai.

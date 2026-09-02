@@ -29,9 +29,23 @@ export interface AppStatus {
   /** Duong dan file nhat ky, cho nut "Xem nhat ky". */
   logPath: string | null;
   lastProbe: ProbeResult | null;
+  /**
+   * N quan GOP lai thanh mot — trang thai xau nhat thang, so don cong don.
+   * Xem `src/core/tong-hop.ts`. null khi chua chon quan nao.
+   */
   poller: PollerStats | null;
+  /** Tung quan mot, dung thu tu trong config/stores.json. Task 7 ve tung dong. */
+  quan: TrangThaiQuan[];
   resilience: ResilienceStats | null;
   warnings: string[];
+}
+
+/** Mot dong trong bang nhieu quan. */
+export interface TrangThaiQuan {
+  merchantID: string;
+  ccmanyStoreID: string;
+  storeName: string;
+  stats: PollerStats;
 }
 
 /** Ket qua lam viec cua cac lop bao ve (Task 10). */
