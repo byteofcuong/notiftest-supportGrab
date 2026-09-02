@@ -30,7 +30,7 @@ import { OrderCache } from '../core/cache.js';
 import { CcmanyUploader } from '../core/uploader.js';
 import { TelegramNotifier } from '../core/telegram.js';
 import { StorePoller } from '../core/poller.js';
-import { gopTrangThai, treKhoiDauMs } from '../core/tong-hop.js';
+import { dongBangDieuKhien, gopTrangThai, nhanKhay, treKhoiDauMs } from '../core/tong-hop.js';
 import type { AppConfig } from '../core/config.js';
 import type { StoreConfig } from '../core/types.js';
 import type { TrangThaiQuan } from '../core/tong-hop.js';
@@ -288,7 +288,7 @@ function batTatTheoDoi(): void {
 }
 
 function capNhatKhay(): void {
-  tray?.capNhat(gopTrangThai(trangThaiTungQuan())?.state ?? null, lastProbe?.matPhien === true);
+  tray?.capNhat(nhanKhay(trangThaiTungQuan(), lastProbe?.matPhien === true));
 }
 
 function moBangDieuKhien(): void {
@@ -495,10 +495,10 @@ function registerIpc(): void {
       partitionPath: GrabWindow.partitionPath(),
       logPath: logger.filePath,
       lastProbe,
-      // Gop N quan thanh mot, de giao dien hien tai chay nguyen khong doi.
-      // Task 7 se ve tung dong quan bang `quan` ngay duoi.
+      // Gop N quan thanh mot cho phan tom tat o dau bang dieu khien.
       poller: gopTrangThai(quan),
-      quan,
+      // Va tung quan mot, da soan san cau chu + mau den. Giao dien chi ve.
+      quan: dongBangDieuKhien(quan),
       resilience: resilience?.stats ?? null,
       warnings: config.warnings,
     };

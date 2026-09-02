@@ -34,18 +34,23 @@ export interface AppStatus {
    * Xem `src/core/tong-hop.ts`. null khi chua chon quan nao.
    */
   poller: PollerStats | null;
-  /** Tung quan mot, dung thu tu trong config/stores.json. Task 7 ve tung dong. */
-  quan: TrangThaiQuan[];
+  /** Tung quan mot, dung thu tu trong config/stores.json, da soan san chu. */
+  quan: DongBang[];
   resilience: ResilienceStats | null;
   warnings: string[];
 }
 
-/** Mot dong trong bang nhieu quan. */
-export interface TrangThaiQuan {
+/**
+ * Mot dong quan trong bang dieu khien.
+ *
+ * Da soan san mau den va cau chu o `core/tong-hop.ts` — giao dien khong quyet
+ * dinh gi, chi ve. Xem `dongBangDieuKhien()`.
+ */
+export interface DongBang {
   merchantID: string;
-  ccmanyStoreID: string;
-  storeName: string;
-  stats: PollerStats;
+  ten: string;
+  mau: 'xanh' | 'vang' | 'do';
+  chu: string;
 }
 
 /** Ket qua lam viec cua cac lop bao ve (Task 10). */

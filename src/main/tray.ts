@@ -11,7 +11,7 @@
  */
 
 import { Menu, Tray, nativeImage } from 'electron';
-import type { PollerState } from '../core/poller.js';
+import type { MauDen, NhanKhay } from '../core/tong-hop.js';
 
 /**
  * Ba cham mau 32x32, nhung thang trong ma nguon.
@@ -20,7 +20,7 @@ import type { PollerState } from '../core/poller.js';
  * __dirname nam trong asar, va duong dan tuong doi toi assets/ la mot cho rat
  * de hong ma chi phat hien ra sau khi da cai len may quan.
  */
-const CHAM: Record<'xanh' | 'vang' | 'do', string> = {
+const CHAM: Record<MauDen, string> = {
   xanh:
     'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAqElEQVR42u2XvRHAIAiFGYRFnILKJe1YgrVMY4rk1ItRgcLidXLvu5NfACYw1WAAAlMEptRQLG+WAwRgEmDKHyUlZhoAB41rIPgXIE4YvxVHAVaa9yGUzNsQlT/Pm4U9AFEAkBZAUDC/FWoAogggbwBUNH/mgkLm9yuiACQDgHQADoArAPMyNG9E5q3YxTAyH8cuFhLzlczFUupiLXdxmLg4zdwcp9t0AVhIrE8hi4OgAAAAAElFTkSuQmCC',
   vang:
@@ -28,8 +28,6 @@ const CHAM: Record<'xanh' | 'vang' | 'do', string> = {
   do:
     'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAqklEQVR42u2XuQ3AIAxFGcSLULrwCCzJIB7B65AmFEGAQg7bBcXvsP6T8BmEMFhqNQCEMAlhHiidbz4HiELIQlhuis+Y1wCwaNwDgacA6YVxq7QK8KX5FELLfAjR+/Pys2AGwAoAPAKICuZVsQfAigDcAoCi+SUXNDJ/WhEVIBsA5A2wAVwBmJeheSMyb8UuhpH5OHaxkJivZC6WUhdruYvDxMVp5uY4/U0HTmwcbXGMLRkAAAAASUVORK5CYII=',
 };
-
-export type MauDen = keyof typeof CHAM;
 
 export interface TrayOptions {
   moBangDieuKhien: () => void;
@@ -54,22 +52,24 @@ export class AppTray {
     this.tray.on('double-click', () => this.options.moBangDieuKhien());
   }
 
-  /** Goi moi lan trang thai doi. Chi ve lai khi thuc su khac, khong nhap nhay. */
-  capNhat(state: PollerState | null, matPhien: boolean): void {
+  /**
+   * Goi moi lan trang thai doi. Chi ve lai khi thuc su khac, khong nhap nhay.
+   *
+   * Quyet dinh mau va cau chu nam o `nhanKhay()` trong core/tong-hop.ts — o day
+   * chi con viec dat anh va tooltip. Tach the vi file nay nap `electron`, tuc
+   * la khong test duoc neu khong dung ca Electron.
+   */
+  capNhat(nhan: NhanKhay): void {
     if (!this.tray) return;
 
-    const dangTheoDoi = state === 'dang-chay';
-    const mau: MauDen =
-      matPhien || state === 'mat-phien' ? 'do' : dangTheoDoi ? 'xanh' : 'vang';
-
-    if (mau !== this.mauHienTai) {
-      this.tray.setImage(anh(mau));
-      this.mauHienTai = mau;
+    if (nhan.mau !== this.mauHienTai) {
+      this.tray.setImage(anh(nhan.mau));
+      this.mauHienTai = nhan.mau;
     }
-    this.tray.setToolTip(`Notiftest-Grab — ${nhan(state, matPhien)}`);
+    this.tray.setToolTip(`Notiftest-Grab — ${nhan.chu}`);
 
-    if (dangTheoDoi !== this.dangTheoDoi) {
-      this.dangTheoDoi = dangTheoDoi;
+    if (nhan.dangTheoDoi !== this.dangTheoDoi) {
+      this.dangTheoDoi = nhan.dangTheoDoi;
       this.veMenu();
     }
   }
@@ -101,9 +101,3 @@ function anh(mau: MauDen): Electron.NativeImage {
   return nativeImage.createFromDataURL(`data:image/png;base64,${CHAM[mau]}`);
 }
 
-function nhan(state: PollerState | null, matPhien: boolean): string {
-  if (matPhien || state === 'mat-phien') return 'MẤT PHIÊN, cần đăng nhập lại';
-  if (state === 'dang-chay') return 'đang theo dõi';
-  if (state === 'loi') return 'đang thử lại';
-  return 'chưa theo dõi';
-}

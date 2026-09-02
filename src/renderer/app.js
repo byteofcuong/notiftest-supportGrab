@@ -31,6 +31,7 @@ async function refresh() {
 
   capNhatDen(status);
   capNhatChonQuan(status);
+  veBangQuan(status.quan ?? []);
 
   set(
     'quan',
@@ -73,6 +74,43 @@ async function refresh() {
     div.className = 'canhbao';
     div.textContent = `⚠ ${text}`;
     box.appendChild(div);
+  }
+}
+
+/**
+ * Bảng trạng thái từng quán.
+ *
+ * Màu đèn và câu chữ đã soạn sẵn ở `core/tong-hop.ts` (`dongBangDieuKhien`),
+ * nơi test được. Ở đây chỉ vẽ — không có quyết định nào.
+ *
+ * Chỉ hiện từ hai quán trở lên: một quán thì khung tóm tắt phía trên đã nói đủ,
+ * thêm một bảng một dòng chỉ làm rối mắt.
+ */
+function veBangQuan(quan) {
+  $('bang-quan').hidden = quan.length < 2;
+  if (quan.length < 2) return;
+
+  const hop = $('ds-trangthai');
+  hop.innerHTML = '';
+  for (const q of quan) {
+    const dong = document.createElement('div');
+    dong.className = 'dongtt';
+
+    const den = document.createElement('span');
+    den.className = `den ${q.mau}`;
+    dong.appendChild(den);
+
+    const ten = document.createElement('span');
+    ten.className = 'ten';
+    ten.textContent = q.ten;
+    dong.appendChild(ten);
+
+    const mota = document.createElement('span');
+    mota.className = 'mota';
+    mota.textContent = q.chu;
+    dong.appendChild(mota);
+
+    hop.appendChild(dong);
   }
 }
 

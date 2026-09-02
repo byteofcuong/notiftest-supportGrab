@@ -133,3 +133,94 @@ function donMoiNhat(quan: TrangThaiQuan[]): PollerStats['donGanNhat'] {
   }
   return moi;
 }
+
+// ── Hien thi: khay va bang dieu khien ────────────────────────────────────────
+
+export type MauDen = 'xanh' | 'vang' | 'do';
+
+export interface NhanKhay {
+  mau: MauDen;
+  /** Doan chu sau dau gach trong tooltip khay. */
+  chu: string;
+  /** Con quan nao dang chay khong — quyet dinh chu cua muc menu Tam dung. */
+  dangTheoDoi: boolean;
+}
+
+/**
+ * Mot cham mau cho N quan.
+ *
+ * Cham khay la thu duy nhat nguoi dung nhin thay khi khong mo gi ca, nen no
+ * phai theo quy tac XAU NHAT THANG. Xanh chi duoc phep sang khi TAT CA cac quan
+ * deu dang theo doi — 12/14 quan chay ma van xanh la bao "moi thu on" dung luc
+ * co hai quan khong len don.
+ */
+export function nhanKhay(quan: TrangThaiQuan[], matPhien: boolean): NhanKhay {
+  const dangChay = quan.filter((q) => q.stats.state === 'dang-chay').length;
+  const dangTheoDoi = dangChay > 0;
+
+  // Mat phien la chuyen cua CA cua so (mot bo cookie), nen no thang moi thu.
+  if (matPhien || quan.some((q) => q.stats.state === 'mat-phien')) {
+    return { mau: 'do', chu: 'MẤT PHIÊN, cần đăng nhập lại', dangTheoDoi };
+  }
+  if (quan.length === 0) {
+    return { mau: 'vang', chu: 'chưa chọn quán', dangTheoDoi: false };
+  }
+  if (dangChay === quan.length) {
+    return {
+      mau: 'xanh',
+      // Mot quan thi giu nguyen cau chu cu, khong hien phan so ky quai "1/1".
+      chu: quan.length === 1 ? 'đang theo dõi' : `đang theo dõi ${quan.length} quán`,
+      dangTheoDoi: true,
+    };
+  }
+  if (dangChay > 0) {
+    return { mau: 'vang', chu: `${dangChay}/${quan.length} quán đang theo dõi`, dangTheoDoi: true };
+  }
+  // Khong quan nao chay: dang thu lai, hay dang tam dung.
+  const coLoi = quan.some((q) => q.stats.state === 'loi');
+  return { mau: 'vang', chu: coLoi ? 'đang thử lại' : 'chưa theo dõi', dangTheoDoi: false };
+}
+
+/** Mot dong quan trong bang dieu khien, da san sang ve. */
+export interface DongBang {
+  merchantID: string;
+  ten: string;
+  mau: MauDen;
+  /** Cau mo ta ngan: don hom nay, moc poll, hoac ly do dang hong. */
+  chu: string;
+}
+
+/**
+ * N quan -> N dong de ve.
+ *
+ * Giu nguyen thu tu trong config/stores.json: nguoi dung vua tick theo thu tu
+ * do o bang chon, va mot bang tu doi cho moi lan lam moi (vd xep quan hong len
+ * dau) se lam ho bam nham dong.
+ */
+export function dongBangDieuKhien(quan: TrangThaiQuan[]): DongBang[] {
+  return quan.map((q) => {
+    const s = q.stats;
+    const mau: MauDen =
+      s.state === 'mat-phien' ? 'do' : s.state === 'dang-chay' ? 'xanh' : 'vang';
+
+    let chu: string;
+    if (s.state === 'mat-phien') chu = 'mất phiên — cần đăng nhập lại';
+    else if (s.state === 'dung') chu = 'tạm dừng';
+    else if (s.state === 'loi') chu = `lỗi: ${s.lastError ?? 'không rõ'}`;
+    else {
+      const dong = [`${s.soDonHomNay} đơn hôm nay`];
+      // Quan dong cua van poll deu, chi gian nhip — noi ro de khong ai tuong
+      // no dang hong.
+      if (s.quanDangMo === false) dong.push('quán đóng cửa');
+      dong.push(`poll ${gioVN(s.lastPollAt)}`);
+      chu = dong.join(' · ');
+    }
+
+    return { merchantID: q.merchantID, ten: q.storeName, mau, chu };
+  });
+}
+
+function gioVN(isoText: string | null): string {
+  if (!isoText) return 'chưa có';
+  return new Date(isoText).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+}

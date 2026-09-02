@@ -76,6 +76,11 @@
       .dongquan label { cursor: pointer; display: flex; gap: 8px; align-items: baseline; width: 100%; }
       .dongquan .thanhpho { color: var(--dim); font-size: 12px; }
       .dongquan .nhan { color: var(--vang); font-size: 12px; }
+      /* Bang trang thai tung quan. Ten trai, mo ta phai, can theo cot de quet
+         mat doc xuong nhanh — 14 dong ma le nhau thi phai doc tung dong. */
+      .dongtt { display: flex; align-items: baseline; gap: 10px; padding: 4px 0; }
+      .dongtt .ten { min-width: 190px; flex-shrink: 0; }
+      .dongtt .mota { color: var(--dim); }
     </style>
   </head>
   <body>
@@ -106,6 +111,13 @@
       <div class="row"><span class="label">Telegram</span><span class="value" id="telegram">—</span></div>
       <div class="row"><span class="label">Đơn hôm nay</span><span class="value" id="donhomnay">—</span></div>
       <div class="row"><span class="label">Đơn gần nhất</span><span class="value" id="donganhat">—</span></div>
+    </div>
+
+    <!-- Chi hien khi theo doi tu hai quan tro len: mot quan thi khung tren da
+         noi du, them mot bang mot dong chi lam roi mat. -->
+    <div class="panel" id="bang-quan" hidden>
+      <div class="row"><span class="label">Từng quán</span></div>
+      <div id="ds-trangthai"></div>
     </div>
 
     <p class="ghichu">Đóng cửa sổ này app vẫn chạy — biểu tượng chấm màu nằm ở khay hệ thống,
