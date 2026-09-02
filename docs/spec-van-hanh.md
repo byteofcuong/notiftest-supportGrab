@@ -479,7 +479,7 @@ quán phải theo dõi.
   "stores": [
     {
       "grabMerchantID": "5-C7XUNYEVEADYN2",   // lấy từ URL trang đơn hàng
-      "ccmanyStoreID":  "STORE1",             // mã do ccmany cấp
+      "ccmanyStoreID":  "",                   // để trống — xem bên dưới
       "storeName":      "Tên quán",
       "enabled":        true
     }
@@ -487,10 +487,24 @@ quán phải theo dõi.
 }
 ```
 
-Thêm quán = thêm một khối, khởi động lại tiến trình. **Không sửa code, không build lại**
-(khác notiftest — bên đó mã quán nằm trong `BuildConfig`, đổi là phải build + cài lại app).
+File này **do app ghi**, không phải người gõ tay. Thêm quán = tick thêm trong bảng chọn quán,
+app ghi lại rồi tự khởi động lại. **Không sửa code, không build lại** (khác notiftest — bên đó
+mã quán nằm trong `BuildConfig`, đổi là phải build + cài lại app).
 
-Cache tách theo `ccmanyStoreID` nên hai quán không thể dẫm chân nhau.
+**`ccmanyStoreID` để trống thì lấy chính `grabMerchantID`.** Mã quán Grab vốn đã duy nhất trong
+cả hệ thống, nên không cần bảng ánh xạ và không ai phải điền gì.
+
+Trường này gánh **hai** việc, và đó là lý do nó phải khác nhau giữa các quán:
+
+| Dùng làm | Ở đâu |
+|---|---|
+| `store_id` trong payload gửi ccmany | `src/core/mapper.ts` |
+| **Tên file cache** `data/cache/<mã>.json` | `src/core/cache.ts` |
+
+Việc thứ hai mới là chỗ nguy hiểm. Hai quán trùng `ccmanyStoreID` sẽ cùng ghi đè một file cache,
+tập đơn đã gửi của quán này bị quán kia xoá, và hậu quả là gửi trùng hoặc **mất đơn** — âm thầm,
+không có lỗi nào hiện ra. Vì vậy `CCMANY_STORE_ID` trong `.env` (di sản thời một quán) chỉ còn
+tác dụng khi đang theo dõi **đúng một** quán; từ hai quán trở lên app bỏ qua nó và ghi cảnh báo.
 
 ---
 

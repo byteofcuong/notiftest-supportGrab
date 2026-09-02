@@ -14,6 +14,7 @@ import {
   copyFileSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -29,11 +30,19 @@ export interface TelegramConfig {
 export interface AppConfig {
   ccmany: { url: string; apiKey: string };
   /**
-   * Ma quan phia ccmany. O trong .env chu khong phai stores.json, vi day la
-   * thu NGUOI phai dien, con stores.json thi app tu ghi khi nhan dien ma quan
-   * Grab. Tach ra the de khong ai phai mo hai file.
+   * CCMANY_STORE_ID trong .env — DI SAN cua thoi mot quan. null khi khong dat.
+   *
+   * Thoi mot quan, day la o NGUOI dien, vi mot ma ccmany la du. Nhieu quan thi
+   * mot gia tri khong the dung cho tat ca: `ccmanyStoreID` vua la `store_id`
+   * gui ccmany, VUA LA TEN FILE CACHE (`src/core/cache.ts`). Cho 14 quan cung
+   * mot ma nghia la 14 poller cung ghi de len `data/cache/STORE1.json`, va tap
+   * don da gui cua quan nay bi quan kia xoa — gui trung hoac mat don, am tham.
+   *
+   * Nen tu Task 3 ma quan mac dinh la `grabMerchantID` (von da duy nhat), con
+   * gia tri nay CHI con tac dung khi dung MOT quan, de ban cai cu khong doi
+   * `store_id` lan ten file cache sau khi cap nhat. Xem `loadStores()`.
    */
-  ccmanyStoreID: string;
+  ccmanyStoreID: string | null;
   /** true = chi ghi payload ra dia, KHONG cham mang. */
   dryRun: boolean;
   /** Ly do dang o che do kho, de hien thi cho nguoi dung. null neu gui that. */
@@ -134,7 +143,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, root = process.
 
   return {
     ccmany: { url, apiKey },
-    ccmanyStoreID: (env.CCMANY_STORE_ID ?? '').trim() || 'STORE1',
+    ccmanyStoreID: (env.CCMANY_STORE_ID ?? '').trim() || null,
     dryRun,
     dryRunReason,
     telegram,
@@ -301,20 +310,56 @@ function ghiDuoc(dir: string): boolean {
   }
 }
 
+/** Mot quan nguoi dung vua tick trong bang chon. */
+export interface QuanDaChon {
+  grabMerchantID: string;
+  /** Ten that lay tu Grab. Thieu thi loadStores() hien ma quan thay cho ten. */
+  storeName?: string;
+}
+
 /**
- * Ghi lai ma quan Grab vua nhan dien duoc.
+ * Ghi danh sach quan nguoi dung vua chon.
  *
- * Ghi de nguyen file: v1 chi mot quan, va file nay tu day tro di la do APP ghi
- * chu khong phai nguoi sua tay. Nguoi chi dong toi .env.
+ * Ghi de nguyen file: tu day tro di file nay do APP ghi chu khong phai nguoi
+ * sua tay. Nguoi chi dong toi .env.
+ *
+ * KHONG ghi `ccmanyStoreID`: de trong thi `loadStores()` dien bang chinh
+ * `grabMerchantID`. Ghi san o day se dong cung mot gia tri vao dia, va quy tac
+ * "ma ccmany = ma quan Grab" sau nay muon doi thi phai sua file thay vi sua mot
+ * cho trong ma nguon.
+ *
+ * Ghi qua file tam roi doi ten: mat dien giua chung se de lai mot stores.json
+ * cut duoi, va tac hai dung bang mat sach lua chon — app mo len bao "chua chon
+ * quan" va ngung nhan don cua ca 14 quan.
  */
-export function luuMaQuan(root: string, grabMerchantID: string): void {
+export function luuDanhSachQuan(root: string, quan: QuanDaChon[]): void {
+  const stores: StoreConfig[] = [];
+  const daCo = new Set<string>();
+  for (const q of quan) {
+    const ma = q?.grabMerchantID?.trim();
+    if (!ma || daCo.has(ma)) continue;
+    daCo.add(ma);
+    stores.push({
+      grabMerchantID: ma,
+      ccmanyStoreID: '',
+      storeName: q.storeName?.trim() || '',
+      enabled: true,
+    });
+  }
+
+  // Danh sach rong la "khong theo doi quan nao" — gan nhu chac chan la loi goi
+  // chu khong phai y nguoi dung. Nem de cho goi bao duoc, con hon ghi de len
+  // lua chon dang chay bang mot file rong.
+  if (stores.length === 0) {
+    throw new Error('Danh sach quan rong — khong ghi de len lua chon dang co');
+  }
+
   const thuMuc = join(root, 'config');
   mkdirSync(thuMuc, { recursive: true });
-  const noiDung: StoresFile = {
-    stores: [{ grabMerchantID, ccmanyStoreID: '', storeName: '', enabled: true }],
-  };
-  writeFileSync(join(thuMuc, 'stores.json'), `${JSON.stringify(noiDung, null, 2)}
-`, 'utf8');
+  const dich = join(thuMuc, 'stores.json');
+  const tam = `${dich}.tmp`;
+  writeFileSync(tam, `${JSON.stringify({ stores } satisfies StoresFile, null, 2)}\n`, 'utf8');
+  renameSync(tam, dich);
 }
 
 /**
@@ -324,7 +369,10 @@ export function luuMaQuan(root: string, grabMerchantID: string): void {
  * thuong cua lan chay dau, khong phai loi. App se hien "chua chon quan" thay vi
  * sap. Chi nem loi khi file that su hong.
  */
-export function loadStores(root = process.cwd(), macDinh?: { ccmanyStoreID: string }): StoreConfig[] {
+export function loadStores(
+  root = process.cwd(),
+  macDinh?: { ccmanyStoreID: string | null },
+): StoreConfig[] {
   const path = join(root, 'config', 'stores.json');
   let raw: string;
   try {
@@ -345,19 +393,30 @@ export function loadStores(root = process.cwd(), macDinh?: { ccmanyStoreID: stri
     throw new Error(`${path} phai co mang "stores"`);
   }
 
-  return parsed.stores
+  const dung = parsed.stores
     .filter((store) => store.enabled !== false)
     // Chua co ma quan = chua thiet lap xong. Bo qua, khong nem loi.
-    .filter((store) => Boolean(store.grabMerchantID?.trim()))
-    .map((store) => ({
-      ...store,
-      grabMerchantID: store.grabMerchantID.trim(),
-      // Hai truong nay chi de hien thi va de danh dau don ben ccmany. Thieu thi
-      // lay mac dinh, khong chan app chay — chan o day nghia la mot o trong
-      // trong file text lam ca cong cu ngung nhan don.
-      ccmanyStoreID: store.ccmanyStoreID?.trim() || macDinh?.ccmanyStoreID || 'STORE1',
-      storeName: store.storeName?.trim() || store.grabMerchantID.trim(),
-    }));
+    .filter((store) => Boolean(store.grabMerchantID?.trim()));
+
+  /**
+   * CCMANY_STORE_ID chi duoc phep ap khi dung MOT quan.
+   *
+   * Mot ma cho nhieu quan la hong nang: `ccmanyStoreID` vua di vao payload
+   * `store_id`, vua la ten file cache — 14 quan chung mot ten file thi tap don
+   * da gui cua nhau bi ghi de. Con voi dung mot quan thi ap vao la giu nguyen
+   * hanh vi ban cu sau khi cap nhat, khong doi `store_id` ma ccmany dang thay.
+   */
+  const diSan = dung.length === 1 ? macDinh?.ccmanyStoreID?.trim() : undefined;
+
+  return dung.map((store) => ({
+    ...store,
+    grabMerchantID: store.grabMerchantID.trim(),
+    // Hai truong nay chi de hien thi va de danh dau don ben ccmany. Thieu thi
+    // lay mac dinh, khong chan app chay — chan o day nghia la mot o trong
+    // trong file text lam ca cong cu ngung nhan don.
+    ccmanyStoreID: store.ccmanyStoreID?.trim() || diSan || store.grabMerchantID.trim(),
+    storeName: store.storeName?.trim() || store.grabMerchantID.trim(),
+  }));
 }
 
 // ── Doc gia tri ──────────────────────────────────────────────────────────────

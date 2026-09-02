@@ -10,7 +10,7 @@ import {
   loadConfig,
   loadEnvFile,
   loadStores,
-  luuMaQuan,
+  luuDanhSachQuan,
 } from '../core/config.js';
 import { Logger } from '../core/log.js';
 import { GrabWindow } from './grab-window.js';
@@ -359,7 +359,7 @@ function luuVaKhoiDongLai(maQuan: string): { ok: boolean; loi?: string } {
   const ma = maQuan.trim();
   if (!ma) return { ok: false, loi: 'Chua nhan duoc ma quan nao' };
   try {
-    luuMaQuan(app.getPath('userData'), ma);
+    luuDanhSachQuan(app.getPath('userData'), [{ grabMerchantID: ma }]);
     logger.info('Da luu ma quan, dang khoi dong lai', ma);
   } catch (err) {
     logger.error('Khong luu duoc ma quan', err);
@@ -493,7 +493,18 @@ app.whenReady().then(async () => {
     // nhap Grab roi bam vao quan cua ho.
     logger.warn('CHUA CHON QUAN - mo trang Grab va bam vao quan de app tu nhan ma');
   } else {
-    logger.info(`Doc duoc ${stores.length} quan`, stores.map((s) => s.grabMerchantID));
+    logger.info(
+      `Doc duoc ${stores.length} quan`,
+      stores.map((s) => `${s.ccmanyStoreID} (${s.storeName})`),
+    );
+    // Noi ro thay vi lang le bo qua: chu quan da tung dien o nay va se tuong no
+    // van co tac dung. Xem AppConfig.ccmanyStoreID de biet vi sao khong ap duoc.
+    if (config.ccmanyStoreID !== null && stores.length > 1) {
+      logger.warn(
+        `BO QUA CCMANY_STORE_ID=${config.ccmanyStoreID} vi dang chay ${stores.length} quan - ` +
+          'moi quan dung chinh ma quan Grab lam store_id. Xoa dong do khoi .env cho khoi nham.',
+      );
+    }
   }
 
   GrabWindow.applyUserAgent(logger);

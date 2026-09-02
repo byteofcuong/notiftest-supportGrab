@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { chuanBiCauHinh } from '../src/core/config.js';
+import { chuanBiCauHinh, loadStores } from '../src/core/config.js';
 
 /**
  * Nhom nay ghim mot lo hong se chi lo ra o LAN CAP NHAT DAU TIEN, tuc la khi
@@ -162,6 +162,66 @@ describe('chuanBiCauHinh', () => {
       readFileSync(join(thuMucNguoiDung, 'config', 'stores.json'), 'utf8'),
     ) as { stores: { grabMerchantID: string }[] };
     expect(conLai.stores[0]!.grabMerchantID).toBe('5-DACHON');
+  });
+
+  /**
+   * Cung chot chan tren, nhung o canh nhieu quan — day moi la canh dat gia.
+   * Mot lan cap nhat app ma nuot mat lua chon 14 quan thi nguoi dung phai mo
+   * bang chon, tick lai tung dong, va trong luc do khong quan nao len don.
+   */
+  it('stores.json rong KHONG duoc ghi de danh sach 14 quan', () => {
+    const daChon = Array.from({ length: 14 }, (_, i) => ({
+      grabMerchantID: `5-QUAN${i}`,
+      ccmanyStoreID: '',
+      storeName: `Quan ${i}`,
+    }));
+    mkdirSync(join(thuMucNguoiDung, 'config'), { recursive: true });
+    writeFileSync(
+      join(thuMucNguoiDung, 'config', 'stores.json'),
+      JSON.stringify({ stores: daChon }),
+      'utf8',
+    );
+    mkdirSync(join(thuMucApp, 'config'), { recursive: true });
+    writeFileSync(
+      join(thuMucApp, 'config', 'stores.json'),
+      JSON.stringify({ stores: [{ grabMerchantID: '', ccmanyStoreID: '', storeName: '' }] }),
+      'utf8',
+    );
+
+    const viTri = chuanBiCauHinh(thuMucApp, thuMucNguoiDung);
+
+    expect(viTri.storesRoot).toBe(thuMucNguoiDung);
+    expect(loadStores(thuMucNguoiDung)).toHaveLength(14);
+  });
+
+  /**
+   * Ban cai di kem chi co MOT quan mau — no van "thang" theo quy tac cu, va
+   * dieu do dung: file canh .exe la cai nguoi dung vua dat vao. Nhung phai chac
+   * la thang tron ven chu khong tron mot nua, de lai 13 quan mo coi.
+   */
+  it('stores.json canh .exe CO ma quan thi thay TOAN BO danh sach cu', () => {
+    mkdirSync(join(thuMucNguoiDung, 'config'), { recursive: true });
+    writeFileSync(
+      join(thuMucNguoiDung, 'config', 'stores.json'),
+      JSON.stringify({
+        stores: Array.from({ length: 14 }, (_, i) => ({
+          grabMerchantID: `5-CU${i}`,
+          ccmanyStoreID: '',
+          storeName: '',
+        })),
+      }),
+      'utf8',
+    );
+    mkdirSync(join(thuMucApp, 'config'), { recursive: true });
+    writeFileSync(
+      join(thuMucApp, 'config', 'stores.json'),
+      JSON.stringify({ stores: [{ grabMerchantID: '5-MOI', ccmanyStoreID: '', storeName: '' }] }),
+      'utf8',
+    );
+
+    chuanBiCauHinh(thuMucApp, thuMucNguoiDung);
+
+    expect(loadStores(thuMucNguoiDung).map((s) => s.grabMerchantID)).toEqual(['5-MOI']);
   });
 
   it('stores.json canh .exe CO ma quan thi van thang nhu cu', () => {
