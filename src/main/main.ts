@@ -31,6 +31,7 @@ import { CcmanyUploader } from '../core/uploader.js';
 import { TelegramNotifier } from '../core/telegram.js';
 import { StorePoller } from '../core/poller.js';
 import { dongBangDieuKhien, gopTrangThai, nhanKhay, treKhoiDauMs } from '../core/tong-hop.js';
+import { nhipDeGiuDinh, uocLuongTai } from '../core/do-tai.js';
 import type { AppConfig } from '../core/config.js';
 import type { StoreConfig } from '../core/types.js';
 import type { TrangThaiQuan } from '../core/tong-hop.js';
@@ -170,6 +171,15 @@ const pollers = new Map<string, StorePoller>();
 let telegram: TelegramNotifier | null = null;
 let tray: AppTray | null = null;
 let resilience: Resilience | null = null;
+/**
+ * Tren muc nay thi ghi mot dong canh bao tai luc khoi dong.
+ *
+ * CON SO TU DAT, khong phai nguong that cua Grab — chua ai do duoc no, va lan
+ * do 02/09/2026 khong gap 429 nao nen cung chua co can duoi. Dat o 10 vi do la
+ * muc ma 14 quan (uoc ~6 req/s) van im lang, con 30 quan (~12 req/s) thi keu.
+ */
+const NGUONG_CANH_BAO_TAI = 10;
+
 /**
  * Nguoi dung bam "Tam dung" thi phai dung — khong duoc de lan kiem tra ket noi
  * ke tiep tu bat lai. Day la lan duy nhat trong app ma y muon cua nguoi thang
@@ -708,10 +718,25 @@ app.whenReady().then(async () => {
         }),
       );
     }
+    // Uoc luong tai NGAY LUC KHOI DONG, truoc khi biet bang cach an 429.
+    // He so 2 la CORS preflight — xem REQUEST_MOI_LOI_GOI trong core/do-tai.ts.
+    const tai = uocLuongTai(pollers.size, config.pollIntervalMs);
     logger.info(`Da lap ${pollers.size} poller tren MOT cua so Grab`, {
       nhipMs: config.pollIntervalMs,
       raiLechPhaMs: stores.map((_, i) => treKhoiDauMs(i, stores.length, config.pollIntervalMs)),
+      uocLuongTrungBinh: `${tai.trungBinh.toFixed(1)} req/s`,
+      uocLuongDinh: `${tai.dinh} req/s (${tai.quanTrongMotGiay} quan/giay)`,
     });
+    // Nguong nay la MOT CON SO TU DAT, khong phai nguong that cua Grab — chua
+    // ai do duoc no. Muc dich chi la de con so dap vao mat truoc khi no thanh
+    // van de, kem mot goi y cu the thay vi bat nguoi dung tu tinh.
+    if (tai.dinh > NGUONG_CANH_BAO_TAI) {
+      logger.warn(
+        `TAI CAO: ${pollers.size} quan o nhip ${config.pollIntervalMs}ms uoc tinh ~${tai.dinh} req/s luc dong nhat. ` +
+          `De giu quanh ${NGUONG_CANH_BAO_TAI} req/s thi dat POLL_INTERVAL_MS=${nhipDeGiuDinh(pollers.size, NGUONG_CANH_BAO_TAI)}. ` +
+          'Chua ai do duoc nguong that cua Grab - chay "npm run do-tai" de xem so lieu that.',
+      );
+    }
 
     // Kiem tra ngay luc khoi dong: day la cach DUY NHAT dang tin de biet phien
     // con song hay khong (doc URL khong dung - xem grab-window.ts).

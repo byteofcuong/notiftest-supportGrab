@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { baoCaoTai, docDongMang, docNhatKy, inBaoCao } from '../src/core/do-tai.js';
+import {
+  baoCaoTai,
+  docDongMang,
+  docNhatKy,
+  inBaoCao,
+  nhipDeGiuDinh,
+  uocLuongTai,
+} from '../src/core/do-tai.js';
 import type { LoiGoi } from '../src/core/do-tai.js';
 
 /**
@@ -443,5 +450,153 @@ describe('baoCaoTai - tach tai cong cu', () => {
     expect(bc.soLoiGoiCongCu).toBe(0);
     expect(bc.dinhCongCu).toBe(0);
     expect(bc.dinhCongCuLuc).toBeNull();
+  });
+});
+
+/**
+ * Uoc luong tai TRUOC khi chay.
+ *
+ * Cau hoi that dang sau nhom nay: "30 quan thi co chay noi khong". Tra loi sai
+ * theo huong lac quan thi tin xau den duoi dang 429 giua gio cao diem, luc
+ * khong ai ngoi canh may.
+ */
+describe('uocLuongTai', () => {
+  it('khong co quan nao thi tai bang 0', () => {
+    const t = uocLuongTai(0, 5000);
+    expect(t.trungBinh).toBe(0);
+    expect(t.dinh).toBe(0);
+  });
+
+  it('cau hinh la (nhip 0, so quan am) khong lam ra NaN', () => {
+    for (const [n, nhip] of [[-1, 5000], [5, 0], [0, 0], [-3, -3]] as const) {
+      const t = uocLuongTai(n, nhip);
+      expect(Number.isFinite(t.trungBinh), `${n}/${nhip}`).toBe(true);
+      expect(Number.isFinite(t.dinh)).toBe(true);
+      expect(t.dinh).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  /**
+   * HE SO 2 LA CORS PREFLIGHT. Do duoc that ngay 02/09: 105 GET di kem 91
+   * OPTIONS. Bo he so nay la moi uoc luong chi bang mot nua tai that.
+   */
+  it('mot quan nhip 5s: 0,2 loi goi/s -> 0,4 req/s vi preflight', () => {
+    const t = uocLuongTai(1, 5000);
+    // 1/5 (danh sach) + 1/60 (trang thai quan) = 0,2167 loi goi/s, nhan 2.
+    expect(t.trungBinh).toBeCloseTo(0.433, 2);
+  });
+
+  it('14 quan nhip 5s ra khoang 6 req/s trung binh', () => {
+    const t = uocLuongTai(14, 5000);
+    expect(t.trungBinh).toBeCloseTo(6.07, 1);
+  });
+
+  /**
+   * Cau tra loi cho "30 quan thi sao": tang gap doi so quan la tang gap doi CA
+   * trung binh LAN dinh, du nhip poll khong doi.
+   */
+  it('30 quan ton gap doi 14 quan, ca trung binh lan dinh', () => {
+    const muoiBon = uocLuongTai(14, 5000);
+    const baMuoi = uocLuongTai(30, 5000);
+    expect(baMuoi.trungBinh / muoiBon.trungBinh).toBeCloseTo(30 / 14, 1);
+    expect(baMuoi.dinh).toBeGreaterThan(muoiBon.dinh);
+  });
+
+  it('14 quan rai deu thi khoang 3 quan ban trong mot giay', () => {
+    expect(uocLuongTai(14, 5000).quanTrongMotGiay).toBe(3);
+  });
+
+  it('30 quan rai deu thi khoang 6 quan ban trong mot giay', () => {
+    expect(uocLuongTai(30, 5000).quanTrongMotGiay).toBe(7);
+  });
+
+  // Gian nhip ra thi dinh tut xuong — do la can gat duy nhat co that.
+  it('gian nhip poll lam dinh giam', () => {
+    const nhanh = uocLuongTai(30, 5000);
+    const cham = uocLuongTai(30, 15_000);
+    expect(cham.dinh).toBeLessThan(nhanh.dinh);
+    expect(cham.trungBinh).toBeLessThan(nhanh.trungBinh);
+  });
+
+  /**
+   * Nhip rat cham: moi giay chi mot quan ban. San duoi la 4 req/s, khong phai 2
+   * — mot nhip DAY DU la hai loi goi API (danh sach + trang thai quan), va moi
+   * loi goi keo theo mot preflight CORS.
+   */
+  it('nhip rat cham thi dinh cham san o 4 req/s, khong xuong 0', () => {
+    const t = uocLuongTai(2, 600_000);
+    expect(t.quanTrongMotGiay).toBe(1);
+    expect(t.dinh).toBe(4);
+  });
+
+  // Nhieu quan hon so mili giay trong mot nhip: tat ca ban trong cung mot giay.
+  it('so quan rat lon thi dinh cham tran o so quan', () => {
+    const t = uocLuongTai(50, 1000);
+    expect(t.quanTrongMotGiay).toBe(50);
+    expect(t.dinh).toBe(200);
+  });
+
+  /**
+   * DOI CHIEU VOI SO DO THAT (02/09/2026, 3 quan, nhip 5s): do duoc dinh 9
+   * req/s. Uoc luong phai o cung bac do — thap hon nhieu la mo hinh sai va se
+   * cho ket luan "con thua cho" dung luc sap het.
+   *
+   * Uoc luong CO Y thap hon so do mot it: no khong tinh phan trang Grab tu goi
+   * cho quan dang hien (4-5 lan moi phut, loi goi giong het nen khong tach
+   * duoc). Chenh nhieu hon the thi mo hinh co van de.
+   */
+  it('khop bac voi so do that ngay 02/09: 3 quan nhip 5s', () => {
+    const t = uocLuongTai(3, 5000);
+    expect(t.dinh).toBeGreaterThanOrEqual(4);
+    expect(t.dinh).toBeLessThanOrEqual(9);
+  });
+});
+
+describe('nhipDeGiuDinh', () => {
+  it('goi y nhip cham hon khi nhieu quan', () => {
+    expect(nhipDeGiuDinh(30, 10)).toBeGreaterThan(nhipDeGiuDinh(14, 10));
+  });
+
+  /**
+   * Goi y phai THUC SU dat duoc muc mong muon. Goi y mot con so roi dat vao van
+   * vuot nguong thi con te hon khong goi y — nguoi dung tuong da xu ly xong.
+   */
+  it('dat nhip theo goi y thi dinh khong con vuot nguong', () => {
+    for (const soQuan of [5, 14, 30, 50]) {
+      for (const nguong of [4, 6, 10, 20]) {
+        const nhip = nhipDeGiuDinh(soQuan, nguong);
+        const t = uocLuongTai(soQuan, nhip);
+        expect(t.dinh, `${soQuan} quan, nguong ${nguong}, nhip ${nhip}`).toBeLessThanOrEqual(nguong);
+      }
+    }
+  });
+
+  it('cau hinh la thi tra 0 chu khong nem', () => {
+    expect(nhipDeGiuDinh(0, 10)).toBe(0);
+    expect(nhipDeGiuDinh(30, 0)).toBe(0);
+    expect(nhipDeGiuDinh(-1, -1)).toBe(0);
+  });
+
+  /**
+   * Nguong thap hon 2 req/s la khong dat duoc bang cach gian nhip: mot loi goi
+   * da ton dung 2 request (chinh no + preflight). Phai tra 0 chu khong duoc
+   * quay vong lap mai de tim mot con so khong ton tai.
+   */
+  it('nguong thap hon mot loi goi thi bao khong dat duoc, khong treo', () => {
+    expect(nhipDeGiuDinh(30, 1)).toBe(0);
+    expect(nhipDeGiuDinh(1, 1)).toBe(0);
+  });
+
+  // Chinh la cho test bat duoc off-by-one: chia dung bang roi lam tron 500 se
+  // roi dung vao bien va van vuot mot bac.
+  it('truong hop bien 5 quan / nguong 4 phai that su dat', () => {
+    const nhip = nhipDeGiuDinh(5, 4);
+    expect(uocLuongTai(5, nhip).dinh).toBeLessThanOrEqual(4);
+  });
+
+  it('lam tron len boi cua 500ms cho de doc', () => {
+    for (const soQuan of [7, 14, 30]) {
+      expect(nhipDeGiuDinh(soQuan, 6) % 500).toBe(0);
+    }
   });
 });

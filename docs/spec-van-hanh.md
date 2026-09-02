@@ -541,7 +541,7 @@ Ba điều rút ra, cả ba đều **không** đoán được nếu không đo:
 **a. Mỗi lời gọi API tốn HAI request, không phải một.** Đếm được 105 `GET` và 91 `OPTIONS` — mỗi
 lời gọi kèm một CORS preflight, vì fetch chạy từ `merchant.grab.com` sang `api.grab.com` với
 header riêng. Nghĩa là **tải thật gấp đôi** mọi ước lượng tính từ số nhịp poll. Ước lượng ~3 req/s
-cho 14 quán ở §7.1 phải đọc lại thành **~6 req/s**.
+cho 14 quán ở §7.1 phải đọc lại thành **~6 req/s trung bình, ~12 req/s đỉnh** (xem bảng bên dưới).
 
 **b. Trang Grab tự poll thêm cho quán nó đang hiển thị.** Mỗi phút có 4–5 lời gọi
 `orders-pagination` cho đúng mã quán đang mở trên màn hình, ngoài nhịp poll của công cụ. Phần này
@@ -556,19 +556,37 @@ khi nghi công cụ.
 
 RAM tiến trình chính sau 2 phút: **117 MB**.
 
-#### Suy ra cho 14 quán
+#### Suy ra cho nhiều quán hơn
 
-Giả sử cả 14 quán đều mở:
+`uocLuongTai()` trong [`src/core/do-tai.ts`](../src/core/do-tai.ts) tính sẵn, và app **ghi con số
+này vào nhật ký ngay lúc khởi động** — không phải chờ ăn `429` mới biết. Nhịp poll 5 giây:
 
-```
-orders-pagination   14 / 5s   = 2,8 req/s
-open-status         14 / 60s  = 0,23 req/s
-                              ~ 3 req/s  x2 (preflight)  ~ 6 req/s
-```
+| Số quán | Trung bình | Đỉnh | Quán bắn trong 1 giây |
+|---:|---:|---:|---:|
+| 1 | 0,4 req/s | 4 req/s | 1 |
+| 3 | 1,3 req/s | 4 req/s | 1 |
+| 14 | 6,1 req/s | 12 req/s | 3 |
+| 30 | 13,0 req/s | 28 req/s | 7 |
+| 50 | 21,7 req/s | 44 req/s | 11 |
 
-Đỉnh thì thấp hơn nhiều nhờ rải lệch pha: `5000ms / 14 ≈ 357ms` một quán, tức trong bất kỳ giây
-nào cũng chỉ khoảng 3 quán bắn → **~6 request/giây đỉnh**. Vẫn phải đo lại bằng `npm run do-tai`
-khi chạy đủ 14 quán, vì con số trên là **suy ra chứ chưa đo**.
+Hai hệ số nhân, cả hai đều học được từ lần đo:
+
+- **×2 cho CORS preflight** — mỗi lời gọi API kèm một `OPTIONS`.
+- **×2 cho nhịp đầy đủ** — mỗi phút một lần, TTL của `open-status` hết hạn và nhịp đó gọi *hai*
+  API thay vì một. Đỉnh là con số của giây xấu nhất, nên phải tính theo nhịp đầy đủ.
+
+> Ước lượng đầu tiên tôi viết cho 3 quán ra **2 req/s** trong khi đo thật được **9** — vì thiếu hệ
+> số thứ hai và vì trang Grab tự poll thêm. Đã sửa; giờ ước lượng ra 4 và phần chênh còn lại đúng
+> là phần trang Grab tự gọi. Bài học: **mọi ước lượng tải ở đây phải đối chiếu với `npm run do-tai`
+> trước khi tin.**
+
+Ước lượng **cố ý thấp hơn số đo một ít**: nó không tính phần trang Grab tự poll cho quán đang
+hiển thị (4–5 lần mỗi phút, lời gọi giống hệt nên không tách được). Phần chênh đó bám vào *một*
+quán và không tăng theo số quán.
+
+**Ngưỡng cảnh báo trong app đặt ở 10 req/s đỉnh** — đó là **con số tự đặt**, không phải ngưỡng thật
+của Grab; chưa ai đo được ngưỡng thật vì lần đo 02/09 không gặp `429` nào. Vượt ngưỡng thì nhật ký
+ghi một dòng `TAI CAO` kèm giá trị `POLL_INTERVAL_MS` cụ thể nên đặt.
 
 Nếu thấy `429`: giãn `POLL_INTERVAL_MS`, **không** cắt bớt lời gọi. Cắt `open-status` chỉ tiết
 kiệm 0,23 req/s mà mất khả năng biết quán đóng hay mở.

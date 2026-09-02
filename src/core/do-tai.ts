@@ -235,3 +235,108 @@ export function inBaoCao(bc: BaoCaoTai): string {
   }
   return d.join('\n');
 }
+
+// ── Uoc luong truoc khi chay ─────────────────────────────────────────────────
+
+/**
+ * MOI LOI GOI API TON HAI REQUEST.
+ *
+ * Do duoc ngay 02/09/2026: 105 GET di kem 91 OPTIONS. Fetch chay tu
+ * merchant.grab.com sang api.grab.com voi header rieng, nen trinh duyet bat
+ * buoc phai hoi truoc bang mot CORS preflight.
+ *
+ * Moi uoc luong tinh tu "so nhip poll" deu phai nhan doi. Quen he so nay la
+ * bao cao chi bang mot nua tai that — va do la kieu sai dan toi ket luan
+ * "con thua cho" dung luc sap khong con.
+ */
+export const REQUEST_MOI_LOI_GOI = 2;
+
+/** Chi hoi trang thai mo/dong nhieu nhat mot lan moi phut moi quan. */
+const NHIP_OPEN_STATUS_GIAY = 60;
+
+/**
+ * Mot nhip poll co the ton toi HAI loi goi API, khong phai mot.
+ *
+ * Nhip thuong chi goi `orders-pagination`. Nhung moi phut mot lan, TTL cua
+ * `open-status` het han va nhip do goi ca hai. Dinh la con so cua giay xau
+ * nhat, nen phai tinh theo nhip day du.
+ *
+ * Bo ve 1 thi uoc luong noi doi han mot nua — da doi chieu voi so do that
+ * ngay 02/09 va thay dung cho nay lech.
+ */
+const LOI_GOI_MOI_NHIP_TOI_DA = 2;
+
+export interface UocLuongTai {
+  soQuan: number;
+  nhipMs: number;
+  /** Request/giay trung binh, da nhan he so preflight. */
+  trungBinh: number;
+  /** Request/giay o giay dong nhat, da nhan he so preflight. */
+  dinh: number;
+  /** So quan cung ban trong giay dong nhat. */
+  quanTrongMotGiay: number;
+}
+
+/**
+ * Uoc luong tai truoc khi chay, tu so quan va nhip poll.
+ *
+ * DINH moi la con so dang nhin. Rai lech pha lam cac quan cach nhau
+ * `nhipMs / soQuan`; trong mot giay bat ky chi nhung quan roi vao cua so do moi
+ * ban. Voi 14 quan nhip 5s thi la ~3 quan/giay, nhung voi 30 quan cung nhip do
+ * la ~7 quan/giay — tuc la tang so quan len gap doi thi dinh cung gap doi, du
+ * nhip poll khong doi.
+ *
+ * KHONG TINH phan trang Grab tu goi. Trang dang mo cung ban `orders-pagination`
+ * cho quan no hien thi, 4-5 lan moi phut, va loi goi do GIONG HET loi goi cua
+ * cong cu nen khong tach duoc ca o day lan trong bao cao. Nghia la so do that
+ * se cao hon uoc luong nay mot it, va phan chenh do bam vao MOT quan chu khong
+ * tang theo so quan.
+ */
+export function uocLuongTai(soQuan: number, nhipMs: number): UocLuongTai {
+  if (soQuan <= 0 || nhipMs <= 0) {
+    return { soQuan: Math.max(soQuan, 0), nhipMs, trungBinh: 0, dinh: 0, quanTrongMotGiay: 0 };
+  }
+
+  const nhipGiay = nhipMs / 1000;
+  const loiGoiMoiGiay = soQuan / nhipGiay + soQuan / NHIP_OPEN_STATUS_GIAY;
+
+  // Khoang cach giua hai quan lien tiep sau khi rai lech pha.
+  const cachNhauMs = nhipMs / soQuan;
+  const quanTrongMotGiay = Math.min(soQuan, Math.floor(1000 / cachNhauMs) + 1);
+
+  return {
+    soQuan,
+    nhipMs,
+    trungBinh: loiGoiMoiGiay * REQUEST_MOI_LOI_GOI,
+    // Giay xau nhat: moi quan trong cua so do dang chay mot nhip DAY DU
+    // (danh sach + trang thai quan), va moi loi goi keo theo mot preflight.
+    dinh: quanTrongMotGiay * LOI_GOI_MOI_NHIP_TOI_DA * REQUEST_MOI_LOI_GOI,
+    quanTrongMotGiay,
+  };
+}
+
+/**
+ * Nhip poll can dat de giu dinh khong vuot qua `dinhMongMuon` request/giay.
+ *
+ * Tra ve ms, lam tron len 500ms cho de doc. Dung de goi y trong nhat ky khi so
+ * quan tang — de nguoi dung co mot con so cu the thay vi phai tu mo tinh.
+ */
+export function nhipDeGiuDinh(soQuan: number, dinhMongMuon: number): number {
+  if (soQuan <= 0 || dinhMongMuon <= 0) return 0;
+  // Mot quan o giay xau nhat da ton LOI_GOI_MOI_NHIP_TOI_DA * REQUEST_MOI_LOI_GOI
+  // request, nen nguong thap hon the la khong the dat bang cach gian nhip.
+  // Tra 0 = "khong co nhip nao cuu duoc".
+  if (dinhMongMuon < LOI_GOI_MOI_NHIP_TOI_DA * REQUEST_MOI_LOI_GOI) return 0;
+
+  const moiQuan = LOI_GOI_MOI_NHIP_TOI_DA * REQUEST_MOI_LOI_GOI;
+  const quanChoPhep = Math.max(1, Math.floor(dinhMongMuon / moiQuan));
+  // quanTrongMotGiay = floor(1000 * soQuan / nhipMs) + 1, va ta muon no <= k.
+  // Suy ra nhipMs phai LON HON 1000 * soQuan / k — bat dang thuc NGHIEM NGAT.
+  // Chia dung bang thi roi vao bien va van vuot mot bac; test bat duoc dung cho
+  // nay (5 quan, nguong 4 -> goi y 2500ms ma dinh van la 6).
+  let nhip = Math.ceil((soQuan * 1000) / quanChoPhep / 500) * 500;
+  // Day them tung nac 500ms cho toi khi that su dat. Chan tren 10 phut: qua do
+  // thi gian nhip khong con la giai phap, va vong lap khong duoc phep chay mai.
+  while (nhip < 600_000 && uocLuongTai(soQuan, nhip).dinh > dinhMongMuon) nhip += 500;
+  return nhip;
+}
