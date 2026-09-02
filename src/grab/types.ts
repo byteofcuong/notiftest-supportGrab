@@ -79,8 +79,23 @@ export interface GrabOrderItem {
   /** Ghi chu khach de rieng cho mon nay. */
   comment?: string | null;
   modifierGroups?: GrabModifierGroup[] | null;
-  /** Chua gap mau nao khac null — chua biet cau truc. */
-  discountInfo?: unknown | null;
+  /**
+   * Giam gia rieng cua mon nay. null khi mon khong duoc giam.
+   *
+   * Do duoc 02/09/2026 tren don GF-497 va GF-806. Tong cac
+   * `itemDiscountPriceDisplay` o day bang dung `fare.totalDiscountAmountDisplay`
+   * cua ca don — mapper dung quan he do lam mot chot doi chieu.
+   */
+  discountInfo?: GrabItemDiscount[] | null;
+}
+
+export interface GrabItemDiscount {
+  /** Vd "XOI  Giam 5.000d" hoac "BUN  Giam 16%". Chi de doc, khong parse. */
+  discountName?: string;
+  /** So tien giam THUC TE cua mon nay, da quy ra tien. Vd "8.800". */
+  itemDiscountPriceDisplay?: string;
+  /** "net" (giam so tien) hoac "percentage" (giam theo phan tram). */
+  discountType?: string;
 }
 
 export interface GrabEater {
@@ -108,8 +123,22 @@ export interface GrabFare {
   /** Dong "Tong cong" tren giao dien — con so dung lam `total`. */
   totalDisplay?: string;
   taxDisplay?: string;
-  /** Khuyen mai cho KHACH, Grab bu. KHONG tru vao tien quan → khong map. */
+  /**
+   * Khuyen mai cho KHACH, Grab bu. KHONG tru vao tien quan → khong map.
+   *
+   * BANG CHUNG (02/09/2026, don GF-806): promotionDisplay = 16.000 trong khi
+   * tien quan chi giam 13.800. Hai con so khac nhau, nen day chac chan KHONG
+   * phai truong mo ta muc giam cua quan. Dung `totalDiscountAmountDisplay`.
+   */
   promotionDisplay?: string;
+  /**
+   * Giam gia do QUAN tu dat cho mon — tru THAT vao tien quan.
+   *
+   * Chuoi rong khi don khong co giam gia nao (ca hai don mau cu deu the).
+   *
+   * Quan he da kiem tren bon don:  subTotal - totalDiscountAmount + tax = total
+   */
+  totalDiscountAmountDisplay?: string;
   deliveryFeeDisplay?: string;
   passengerTotalDisplay?: string;
   /** "0" o ca hai don mau; chiet khau san co le quyet toan o tang sao ke. */

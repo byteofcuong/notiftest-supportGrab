@@ -220,7 +220,9 @@ Nó là **giá món gốc chưa cộng topping** (19.000 với món Sting Đỏ 
 Ở HAR 1 không có topping nên hai số bằng nhau, không phân biệt được.
 
 `original_price` của ccmany nghĩa là **giá gạch ngang khi có khuyến mãi** — khác hoàn toàn.
-→ **Để trống `original_price`**, trừ khi `discountInfo != null` (chưa gặp mẫu nào).
+→ **Để trống `original_price`**. Đã gặp `discountInfo` thật (02/09/2026, §6.1): nó mang
+`itemDiscountPriceDisplay` — *số tiền giảm*, không phải *giá trước giảm* — nên vẫn không điền
+được vào `original_price`. Mức giảm đi vào `discount` của cả đơn.
 
 ### ⚠️ Cái bẫy giá — ngược quy ước của notiftest
 
@@ -301,7 +303,7 @@ Contract giữ nguyên như `Order.toApiJson()` của notiftest
 | `items[].modifiers[]` | `item.modifierGroups[].modifiers[]` | trải phẳng mảng 2 tầng; gửi **giá thật** — §6.3 |
 | `note` | `order.eater.comment` (+ `cutlery`?) | `"Gặp mặt ở sảnh"`, `cutlery: 2` |
 | `subtotal` | `fare.subTotalDisplay` | |
-| `discount` | **0** | KHÔNG map `promotionDisplay` — §6.1 |
+| `discount` | `fare.totalDiscountAmountDisplay` (rỗng = 0) | KHÔNG phải `promotionDisplay` — §6.1 |
 | `tax` | `fare.taxDisplay` | |
 | `total` | `fare.totalDisplay` | dòng "Tổng cộng" — §6.1 |
 
@@ -318,21 +320,47 @@ Green SM). Grab không có trường tên như vậy, nhưng so hai đơn thì l
 | `promotionDisplay` | 2.000 | 5.000 |
 | `passengerTotalDisplay` | 152.000 | 129.000 |
 
-`totalDisplay` luôn **bằng** `subTotalDisplay`, và **khuyến mãi không bị trừ vào đó**
+`totalDisplay` ở hai đơn này **bằng** `subTotalDisplay`, và **khuyến mãi không bị trừ vào đó**
 (2.000 và 5.000 đều không làm nó giảm) → khuyến mãi là tiền Grab bù cho khách, quán không chịu.
-Khớp với giao diện web: "Tổng (tạm tính) 121k" → "Thuế 0đ" → "Tổng cộng".
 
-**Chốt:**
+##### ⚠️ Bổ sung 02/09/2026 — kết luận "discount = 0" là SAI khi tổng quát hoá
+
+Hai đơn trên **không có giảm giá món nào**, nên chúng chỉ chứng minh được nửa vế. Gặp đơn thật có
+giảm giá thì lộ ra một trường thứ ba:
+
+| | GF-666 | GF-547 | **GF-497** | **GF-806** |
+|---|---|---|---|---|
+| `subTotalDisplay` | 141.000 | 121.000 | 65.000 | 110.000 |
+| `totalDisplay` | 141.000 | 121.000 | **60.000** | **96.200** |
+| `promotionDisplay` | 2.000 | 5.000 | 5.000 | **16.000** |
+| `totalDiscountAmountDisplay` | `""` | `""` | **5.000** | **13.800** |
+| Tiền quán giảm thật | 0 | 0 | 5.000 | 13.800 |
+
+**`promotionDisplay` dứt khoát là trường khác:** ở GF-806 nó bằng 16.000 trong khi tiền quán chỉ
+giảm 13.800. Lấy nhầm nó thì đơn đó sai 2.200đ, và không chốt nào bắt được vì
+`subtotal − 16.000` vẫn là một con số trông hợp lý.
+
+**Chốt (đã sửa):**
 
 ```
-subtotal = fare.subTotalDisplay
+subtotal = fare.subTotalDisplay              (tổng các dòng món, TRƯỚC giảm)
+discount = fare.totalDiscountAmountDisplay   (rỗng = 0)
 tax      = fare.taxDisplay
-discount = 0            ← KHÔNG map promotionDisplay vào
-total    = fare.totalDisplay     (= dòng "Tổng cộng")
+total    = fare.totalDisplay                 (= dòng "Tổng cộng")
+
+quan hệ đã kiểm trên cả bốn đơn:  subtotal − discount + tax = total
 ```
 
-Không map `promotionDisplay` vào `discount` vì làm thế sẽ phá quan hệ
-`total = subtotal − discount − tax` mà ccmany có thể đang dựa vào.
+`discountInfo` của từng món (mới đo được, xem §4) mang `itemDiscountPriceDisplay`; tổng của chúng
+bằng đúng `totalDiscountAmountDisplay`. Mapper dùng quan hệ đó làm **chốt đối chiếu thứ hai** —
+lệch thì cảnh báo, vì nghĩa là còn một loại giảm giá chưa hiểu (ví dụ giảm ở cấp đơn).
+
+> **Giá món giữ nguyên giá TRƯỚC giảm.** Mức giảm đã nằm ở `discount` của cả đơn; trừ thêm vào
+> từng dòng nữa là trừ giảm giá hai lần.
+
+> Chốt `total = subtotal − discount + tax` trong `checkTotals()` **đã cứu đúng một lần thật**: nó
+> kêu lên ở GF-497 và GF-806 trước khi ai kịp tin con số. Không có nó thì hai đơn sai tiền đã đi
+> thẳng sang ccmany mà không ai biết.
 
 #### Vấn đề chiết khấu sàn — `total` của Grab KHÔNG cùng nghĩa với các sàn khác
 

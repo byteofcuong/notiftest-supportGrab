@@ -123,8 +123,50 @@ describe('formatOrder', () => {
 
   it('liet ke mon kem topping thut vao', () => {
     expect(text).toContain('1x Sting Đỏ — 26.000đ');
-    expect(text).toContain('• option3 (+4.000đ)');
-    expect(text).toContain('• option2 (+3.000đ)');
+    expect(text).toContain('• option3 4.000đ');
+    expect(text).toContain('• option2 3.000đ');
+  });
+
+  /**
+   * `price` cua mon DA gom topping (19.000 + 4.000 + 3.000 = 26.000), nen dong
+   * topping chi la liet ke thanh phan chu khong phai khoan cong them.
+   *
+   * Truoc day viet "(+4.000d)". Nguoi dung doc xong cong tiep thanh 33.000 roi
+   * doi chieu voi man hinh Grab thay lech va tuong cong cu tinh sai — ho bao
+   * lai ngay 02/09/2026. So lieu van dung, chi cach viet gay hieu nham.
+   */
+  it('KHONG dung dau + truoc gia topping', () => {
+    expect(text).not.toContain('(+');
+  });
+
+  it('noi ro gia mon da gom topping', () => {
+    expect(text).toContain('1x Sting Đỏ — 26.000đ (đã gồm topping)');
+  });
+
+  // Mon khong co topping thi khong can chu thich — them vao chi lam roi mat.
+  it('mon khong topping thi khong co chu thich', () => {
+    expect(text).toContain('1x 🍓 Que Quế Dâu Hồng Ngọt Ngào — 5.000đ');
+    expect(text).not.toContain('Dâu Hồng Ngọt Ngào — 5.000đ (đã gồm');
+  });
+
+  // Topping gia 0 (tuy chon khong tinh tien) cung khong lam mon co chu thich.
+  it('topping gia 0 khong lam mon bi ghi "da gom topping"', () => {
+    const mien = formatOrder({
+      ...PAYLOAD,
+      items: [
+        {
+          name: 'Mon',
+          quantity: 1,
+          price: 10_000,
+          original_price: null,
+          note: '',
+          modifiers: [{ name: 'Khong da', price: 0, quantity: 1 }],
+        },
+      ],
+    });
+    expect(mien).toContain('1x Mon — 10.000đ');
+    expect(mien).toContain('• Khong da');
+    expect(mien).not.toContain('đã gồm topping');
   });
 
   it('giu ghi chu cua mon', () => {

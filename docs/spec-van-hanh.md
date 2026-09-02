@@ -556,6 +556,49 @@ khi nghi công cụ.
 
 RAM tiến trình chính sau 2 phút: **117 MB**.
 
+#### Đo được ngày 02/09/2026 — **14 quán thật, 14 phút** → gặp `429`
+
+```
+Khoang do:      863s        Tong loi goi: 4046
+Trung binh:     4.69 req/s  DINH cong cu: 20 req/s
+Ma loi:         429 x347    <<< BI CHAN
+```
+
+**Đây là lần đo tìm ra hai lỗi thật**, không phải chuyện chỉnh tham số.
+
+**Lỗi 1 — rải lệch pha bị tan.** So cùng một khoảnh khắc ở hai thời điểm:
+
+```
+05:24   30.0  30.3  30.7  31.4  32.3  32.5  32.8  33.2      <- cách đều 0,3-0,7s
+05:38   34.559 34.579 34.650 34.684 34.996 35.090 35.267    <- 7 lần gọi dồn trong 0,5s
+```
+
+Nguyên nhân: nhịp cũ cộng `now + nhịp` **sau khi** lượt xong, nên mỗi quán trôi theo đúng thời
+gian xử lý của chính nó. Quán bị `429` hỏng nhanh nên trôi sớm lên, quán đang gửi đơn thì trôi lùi
+lại. Sau vài phút chúng đâm vào nhau, đỉnh vọt lên, và Grab chặn — đúng cái mà rải lệch pha sinh
+ra để tránh.
+
+Đã sửa: `chamLuoi()` neo mỗi nhịp vào lưới cố định `≡ pha (mod nhịp)`. Lượt vừa rồi mất bao lâu
+cũng không ảnh hưởng moc kế tiếp, nên **độ lệch giữ được mãi**. Vẫn giữ nguyên tắc cũ: một lượt
+chậm quá một ô thì bỏ ô đó, không dồn lại.
+
+**Lỗi 2 — `429` không hề được lùi.** Nó rơi vào nhánh lỗi chung → `state = 'loi'` → nhịp sau vẫn
+gọi lại sau đúng 5 giây. Tức là **bị chặn vì gọi quá nhiều, và phản ứng là gọi tiếp y nguyên nhịp
+đó**. Số lần `429` tăng dần suốt 14 phút (5 → 17 → 32 → 41 → 53 mỗi phút) chính là vòng xoáy này.
+
+Đã sửa: `biChan()` lùi theo cấp số nhân, trần 2 phút, xoá hẳn khi qua được một lượt.
+**Không** đặt `state = 'loi'` — bị chặn không phải hỏng, và đặt `'loi'` sẽ làm watchdog đếm ngược
+tới lúc tải lại trang: vừa vô ích (tải lại không gỡ được chặn) vừa thêm tải đúng lúc đang phải bớt.
+
+Hết lùi thì nhịp sau lại bám vào lưới pha riêng, nên 14 quán **tự giãn ra** chứ không cùng ùa vào
+một chỗ — không cần thêm nhiễu ngẫu nhiên.
+
+> **Chưa đo lại sau khi sửa.** Hai thay đổi trên có test phủ nhưng số liệu thật thì chưa có. Phải
+> chạy lại đúng quy trình 10 phút và đối chiếu `Ma loi` trước khi coi là xong.
+
+Nếu vẫn còn `429` sau khi sửa: giãn `POLL_INTERVAL_MS` (14 quán → `7500` giữ đỉnh quanh 10 req/s),
+**không** cắt bớt lời gọi.
+
 #### Suy ra cho nhiều quán hơn
 
 `uocLuongTai()` trong [`src/core/do-tai.ts`](../src/core/do-tai.ts) tính sẵn, và app **ghi con số

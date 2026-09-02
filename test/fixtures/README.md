@@ -28,6 +28,8 @@ thật thì nó ném lỗi thay vì ghi.
 | `detail-gf547.json` | `2.har` 04:26:10 | **Fixture quan trọng nhất** — xem bên dưới |
 | `list-empty.json` | `1.har` 10:04:20 | Danh sách rỗng, `pollInterval: 300` |
 | `open-status.json` | `1.har` 10:04:20 | `isOpen: true` |
+| `detail-gf497-giam-gia.json` | đơn thật 02/09 | **Giảm giá món**: 1 món + topping, giảm 5.000 |
+| `detail-gf806-giam-gia.json` | đơn thật 02/09 | **Giảm giá món**: 2 món, giảm theo tiền *và* theo % |
 | `store-search.json` | **viết tay** | Danh sách quán trong nhóm — xem cảnh báo bên dưới |
 
 ## Vì sao `detail-gf547.json` là fixture quan trọng nhất
@@ -51,7 +53,10 @@ Nó bắt được **cả bốn cái bẫy** đã ghi trong `docs/grab-api-findi
 4. **`modifierGroups` là mảng hai tầng** (nhóm → tuỳ chọn) → phải trải phẳng.
 
 Ngoài ra `promotionDisplay: "5.000"` mà `totalDisplay` vẫn `= subTotalDisplay = 121.000` —
-bằng chứng Grab không trừ khuyến mãi vào tiền quán, nên `discount` gửi ccmany phải là `0`.
+bằng chứng Grab không trừ khuyến mãi vào tiền quán.
+
+> ⚠️ Đơn này **không có giảm giá món nào**, nên nó chỉ chứng minh được nửa vế. Suy ra
+> "`discount` luôn bằng 0" từ đây là **sai** — xem `detail-gf497-giam-gia.json` bên dưới.
 
 ## Thiếu gì
 
@@ -76,3 +81,22 @@ giấu mất quán đang bán.
 Chạy một lần với `DEV_THU_CHEO=true` và phiên Grab còn sống, rồi bấm sang một quán khác. Probe ghi
 nguyên văn response ra `data/raw/store-search.json` (xem `src/main/thu-cheo.ts`). Đổi tên và địa chỉ
 quán sang giá trị giả rồi chép đè lên file này, và **xoá mục cảnh báo này đi**.
+
+## Hai fixture giảm giá — vì sao chúng quan trọng
+
+`detail-gf497-giam-gia.json` và `detail-gf806-giam-gia.json` là đơn **thật**, chụp ngày 02/09/2026,
+đã ẩn danh đúng ba trường như trên. Chúng vào đây vì đã bắt được một lỗi tiền thật:
+
+```
+GF-497   subtotal  65.000   discount  5.000   total  60.000
+GF-806   subtotal 110.000   discount 13.800   total  96.200
+```
+
+Trước đó `discount` bị đóng cứng bằng `0` — kết luận rút ra từ hai fixture cũ, mà cả hai đều
+**không có giảm giá món nào**. Hậu quả: `subtotal − discount ≠ total`, hoá đơn bên ccmany không
+cộng được.
+
+`GF-806` là fixture duy nhất chứng minh dứt điểm rằng **`promotionDisplay` là trường khác**: nó
+bằng `16.000` trong khi tiền quán chỉ giảm `13.800`. Đừng xoá đơn này.
+
+Cả hai cũng là mẫu đầu tiên có `discountInfo` khác `null` — trước đó chưa ai thấy cấu trúc của nó.

@@ -192,9 +192,21 @@ export function formatOrder(payload: CcmanyPayload, note?: string): string {
   lines.push('');
 
   for (const item of payload.items) {
-    lines.push(`${item.quantity}x ${item.name} — ${formatVnd(item.price)}`);
+    /**
+     * `item.price` la TONG DONG va DA gom topping — vd mon 55.000 + topping
+     * 10.000 = 65.000. Nen dong topping ben duoi chi la LIET KE THANH PHAN,
+     * khong phai khoan cong them.
+     *
+     * Truoc day viet "(+10.000d)", va dau `+` lam nguoi doc cong tiep thanh
+     * 75.000 roi doi chieu voi man hinh Grab thay lech. Chinh nguoi dung bao
+     * lai chuyen nay (02/09/2026). So lieu van dung, chi cach viet gay hieu
+     * nham — nen sua o day chu KHONG dung toi payload gui ccmany.
+     */
+    const coTopping = item.modifiers.some((m) => m.price > 0);
+    const ghiChu = coTopping ? ' (đã gồm topping)' : '';
+    lines.push(`${item.quantity}x ${item.name} — ${formatVnd(item.price)}${ghiChu}`);
     for (const modifier of item.modifiers) {
-      const price = modifier.price > 0 ? ` (+${formatVnd(modifier.price)})` : '';
+      const price = modifier.price > 0 ? ` ${formatVnd(modifier.price)}` : '';
       lines.push(`     • ${modifier.name}${price}`);
     }
     if (item.note) lines.push(`     ghi chu: ${item.note}`);

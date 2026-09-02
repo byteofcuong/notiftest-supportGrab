@@ -19,7 +19,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { GrabClient, SessionExpiredError } from '../grab/client.js';
+import { GrabApiError, GrabClient, SessionExpiredError } from '../grab/client.js';
 import { mapOrder } from './mapper.js';
 import type { OrderCache } from './cache.js';
 import type { CcmanyUploader } from './uploader.js';
@@ -52,8 +52,9 @@ export interface PollerDeps {
    * Hoan nhip DAU TIEN lai bay nhieu ms. Mac dinh 0 — poll ngay khi start().
    *
    * De 14 quan khong ban `orders-pagination` cung mot khoanh khac, cu 5 giay
-   * mot lan. Do lech tao ra o nhip dau duoc giu nguyen ve sau, vi tu do moi
-   * poller tu noi chuoi setTimeout cua rieng no.
+   * mot lan. Gia tri nay CON la PHA cua quan: moi nhip sau deu duoc neo vao
+   * luoi `≡ pha (mod nhip)` — xem chamLuoi(). Nho the do lech giu duoc mai,
+   * chu khong tan di sau vai phut nhu ban dau.
    *
    * De o day chu khong phai o cho goi start(): nguoi dung bam Tam dung roi bam
    * Tiep tuc se lam ca 14 poller khoi dong lai cung luc, va do lech rai duoc
@@ -67,6 +68,15 @@ export interface PollerDeps {
 
 /** Chi hoi trang thai mo/dong nhieu nhat mot lan moi ngan nay. */
 const OPEN_STATUS_TTL_MS = 60_000;
+
+/**
+ * Tran cho viec lui khi bi 429.
+ *
+ * Hai phut la du lau de het mot cua so gioi han cua may chu, ma van du ngan de
+ * mot quan vua duoc go chan khong bo lo don qua lau. Lui vo han thi mot dot
+ * chan ngan cung lam quan im het buoi.
+ */
+const NGUONG_LUI_TOI_DA_MS = 120_000;
 
 export class StorePoller {
   private timer: NodeJS.Timeout | null = null;
@@ -86,6 +96,15 @@ export class StorePoller {
 
   /** Dang lay chi tiet / gui mot don. Task 10 dua vao day de hoan reload trang. */
   private dangXuLyDon = false;
+
+  /**
+   * Grab dang chan (429): khong goi lai truoc moc nay.
+   *
+   * 0 = khong bi chan. Xem biChan() de biet vi sao phai co cho nay.
+   */
+  private hoanDenMs = 0;
+  /** So lan 429 lien tiep, de lui ngay cang xa. Ve 0 khi qua duoc mot luot. */
+  private soLan429 = 0;
 
   /** So lan da thu moi don loi, de bo cuoc sau MAX_ORDER_ATTEMPTS. */
   private attempts = new Map<string, number>();
@@ -194,6 +213,9 @@ export class StorePoller {
       this.state = 'dang-chay';
       this.lastError = null;
       if (truocDo === 'loi' || truocDo === 'mat-phien') this.baoPhucHoi(truocDo);
+      // Qua duoc mot luot la Grab da thoi chan: xoa han cho lui.
+      this.soLan429 = 0;
+      this.hoanDenMs = 0;
 
       const orders = list.orders ?? [];
       // Muc debug: nhip thanh cong ma khong co don thi khong ghi gi ca, nen khi
@@ -212,6 +234,10 @@ export class StorePoller {
     } catch (err) {
       if (err instanceof SessionExpiredError) {
         await this.baoMatPhien(err);
+        return;
+      }
+      if (err instanceof GrabApiError && err.status === 429) {
+        this.biChan();
         return;
       }
       if (this.state !== 'loi') this.hongTu = this.now();
@@ -371,11 +397,82 @@ export class StorePoller {
    * Quan dong cua thi khong the co don moi, nen gian nhip ra. Mat phien cung
    * gian ra — cho toi khi nguoi dung dang nhap lai thi poll day cung vo ich.
    */
+  /**
+   * Grab tra ve 429 — dang bi chan vi goi qua day.
+   *
+   * TRUOC KHI CO HAM NAY, 429 roi vao nhanh loi chung: state thanh 'loi' roi
+   * nhip sau van goi lai sau dung 5 giay. Tuc la bi chan vi goi qua nhieu, va
+   * phan ung la goi tiep y nguyen nhip do. Do duoc that ngay 02/09/2026 voi 14
+   * quan: 401 lan 429 trong 14 phut, va so lan tang dan theo thoi gian.
+   *
+   * Lui theo cap so nhan, tran o NGUONG_LUI_TOI_DA_MS. Khong can them nhieu
+   * ngau nhien: het han lui thi nhip sau lai bam vao luoi pha rieng cua quan
+   * (xem chamLuoi), nen 14 quan tu giai ra chu khong cung ua vao mot cho.
+   *
+   * KHONG dat state = 'loi': bi chan khong phai hong. Dat 'loi' se lam watchdog
+   * dem nguoc toi luc tai lai trang — mot viec vua vo ich vua them tai dung luc
+   * dang phai bot tai.
+   */
+  private biChan(): void {
+    const { logger, store } = this.deps;
+    this.soLan429 += 1;
+    const lui = Math.min(
+      NGUONG_LUI_TOI_DA_MS,
+      this.nhipHienTaiMs() * 2 ** Math.min(this.soLan429, 10),
+    );
+    this.hoanDenMs = this.now() + lui;
+    this.lastError = `Grab tam chan (HTTP 429) - lui ${Math.round(lui / 1000)}s`;
+    // Chi ghi to lan dau moi dot: bi chan lien tuc thi day se lap rat nhieu.
+    const ghi = this.soLan429 === 1 ? logger.warn : logger.debug;
+    ghi.call(
+      logger,
+      `[${store.ccmanyStoreID}] Grab tam chan (429) - lui ${Math.round(lui / 1000)}s`,
+      { lanThu: this.soLan429 },
+    );
+  }
+
   private nextDelayMs(): number {
+    // Grab dang chan: nghe theo no truoc da. Cho nay thang moi lich khac.
+    if (this.hoanDenMs > this.now()) return this.hoanDenMs - this.now();
+    return this.chamLuoi(this.nhipHienTaiMs());
+  }
+
+  private nhipHienTaiMs(): number {
     const { pollIntervalMs, pollIntervalClosedMs } = this.deps.config;
     if (this.state === 'mat-phien') return Math.max(pollIntervalClosedMs, 30_000);
     if (this.quanDangMo === false) return pollIntervalClosedMs;
     return pollIntervalMs;
+  }
+
+  /**
+   * Gan nhip poll vao mot LUOI CO DINH theo pha rieng cua quan, thay vi cong
+   * them mot nhip sau moi luot.
+   *
+   * DAY LA CHO DA HONG THAT, do duoc ngay 02/09/2026 voi 14 quan chay 14 phut:
+   *
+   *   05:24   30.0  30.3  30.7  31.4  32.3  32.5  32.8  33.2   <- cach deu
+   *   05:38   34.559 34.579 34.650 34.684 34.996 35.090        <- don 7 vao 0,5s
+   *
+   * Cong "now + nhip" sau moi luot lam moi quan troi theo thoi gian xu ly cua
+   * chinh no: quan bi 429 hong nhanh nen troi som len, quan dang gui don thi
+   * troi lui lai. Sau vai phut chung dam vao nhau, dinh vot len, va Grab tra
+   * 429 — dung cai ma rai lech pha sinh ra de tranh.
+   *
+   * Neo vao luoi thi quan luon ban o cac moc ≡ pha (mod nhip), bat ke luot vua
+   * roi mat bao lau. Do lech rai luc khoi dong duoc giu MAI MAI.
+   *
+   * Van giu nguyen tac cu: mot luot cham khong duoc chong len luot sau — cham
+   * qua mot o thi bo o do va di toi o ke tiep, chu khong don lai.
+   */
+  private chamLuoi(nhip: number): number {
+    if (nhip <= 0) return 0;
+    const pha = (this.deps.khoiDauTreMs ?? 0) % nhip;
+    const con = (this.now() - pha) % nhip;
+    // `% ` cua JS giu dau am khi now < pha (dong ho bi chinh lui), nen chuan hoa.
+    const daQua = ((con % nhip) + nhip) % nhip;
+    const den = nhip - daQua;
+    // Roi dung vao moc luoi thi di toi o sau, khong tra 0 (se quay lien tuc).
+    return den === 0 ? nhip : den;
   }
 
   private dayKey(): string {

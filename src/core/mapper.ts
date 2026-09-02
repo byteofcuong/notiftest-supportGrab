@@ -53,6 +53,7 @@ export function mapOrder(
   const money = mapMoney(order, warnings);
 
   checkTotals(money, items, warnings);
+  doiChieuGiamGia(order, money, warnings);
   noteUnknownShapes(order, warnings);
 
   const payload: CcmanyPayload = {
@@ -79,10 +80,18 @@ export function mapOrder(
 
     items,
     subtotal: money.subtotal,
-    // KHONG map fare.promotionDisplay vao day: khuyen mai la tien Grab bu cho
-    // khach, khong tru vao tien quan. Bang chung: ca hai don mau deu co
-    // promotion khac 0 ma totalDisplay van bang subTotalDisplay. Xem §6.1.
-    discount: 0,
+    /**
+     * Giam gia do QUAN dat cho mon — tru THAT vao tien quan.
+     *
+     * KHONG phai `fare.promotionDisplay`: do la tien Grab bu cho khach va
+     * khong dung toi tien quan. Don GF-806 chung minh hai thu khac han nhau —
+     * promotionDisplay = 16.000 trong khi tien quan chi giam 13.800.
+     *
+     * Truoc 02/09/2026 cho nay bi dong cung bang 0, vi hai don mau dau tien
+     * deu khong co giam gia mon nao. Hau qua: `subtotal - discount` khong ra
+     * `total`, va hoa don ben ccmany khong cong duoc. Xem §6.1.
+     */
+    discount: money.discount,
     tax: money.tax,
     total: money.total,
   };
@@ -107,11 +116,11 @@ function mapItems(order: GrabOrder, warnings: string[]): CcmanyItem[] {
     // 26.000). Tuyet doi khong dung priceFloat — do la DON GIA.
     const price = parseVndOrThrow(raw.fare?.priceDisplay, `items[${index}].fare.priceDisplay`);
 
-    if (raw.discountInfo != null) {
-      // Chua tung gap mau nao. Co the no cho biet gia truoc khi giam — thu duy
-      // nhat co the dien dung vao original_price.
-      warnings.push(`Mon "${name}" co discountInfo khac null — chua biet cau truc, xem JSON tho`);
-    }
+    // `discountInfo` khong doc vao `price`: `priceDisplay` la gia TRUOC giam,
+    // va muc giam duoc gom lai o `fare.totalDiscountAmountDisplay` cua ca don.
+    // Doc ca hai cho vao mot dong tien la tru giam gia hai lan.
+    //
+    // Chi cong lai de doi chieu — xem checkTotals().
 
     items.push({
       name,
@@ -161,6 +170,7 @@ function mapModifiers(
 
 interface Money {
   subtotal: number | null;
+  discount: number;
   tax: number;
   total: number | null;
 }
@@ -168,11 +178,29 @@ interface Money {
 function mapMoney(order: GrabOrder, warnings: string[]): Money {
   return {
     subtotal: optionalMoney(order.fare?.subTotalDisplay, 'fare.subTotalDisplay', warnings),
+    // Chuoi rong = don khong duoc giam gi ca, va do la truong hop THUONG GAP
+    // nhat — khong canh bao. Chi canh bao khi co gia tri ma doc khong ra.
+    discount: tienCoTheRong(order.fare?.totalDiscountAmountDisplay, 'fare.totalDiscountAmountDisplay'),
     tax: optionalMoney(order.fare?.taxDisplay, 'fare.taxDisplay', warnings) ?? 0,
     // Dong "Tong cong" tren giao dien Grab. Doc thang thay vi tu tinh, de quan
     // nao co thue khac 0 thi van dung ma khong phai doan cong thuc. Xem §6.1.
     total: optionalMoney(order.fare?.totalDisplay, 'fare.totalDisplay', warnings),
   };
+}
+
+/**
+ * Truong tien ma VANG MAT LA BINH THUONG.
+ *
+ * Khac `optionalMoney`: khong canh bao khi rong. Dung cho nhung truong ma
+ * "khong co" la truong hop thuong gap — vd `totalDiscountAmountDisplay` rong
+ * o moi don khong duoc giam gia, tuc la phan lon cac don.
+ *
+ * Van NEM LOI khi co gia tri ma doc khong ra: do la dau hieu Grab doi dinh
+ * dang tien, va doan mu se cho ra so tien sai.
+ */
+function tienCoTheRong(raw: string | undefined, field: string): number {
+  if (raw == null || raw.trim() === '') return 0;
+  return parseVndOrThrow(raw, field);
 }
 
 /**
@@ -188,6 +216,33 @@ function optionalMoney(raw: string | undefined, field: string, warnings: string[
   return parseVndOrThrow(raw, field);
 }
 
+/**
+ * Tong giam gia tung mon phai bang muc giam cua ca don.
+ *
+ * Hai cho khac nhau trong JSON cung mo ta mot chuyen: `discountInfo` cua tung
+ * mon, va `fare.totalDiscountAmountDisplay` cua ca don. Da kiem tren don GF-497
+ * (5.000 = 5.000) va GF-806 (8.800 + 5.000 = 13.800).
+ *
+ * Lech nghia la co mot loai giam gia chua hieu het — vd giam gia cap DON chu
+ * khong phai cap mon. Luc do phai xem JSON tho truoc khi tin con so.
+ */
+function doiChieuGiamGia(order: GrabOrder, money: Money, warnings: string[]): void {
+  let tongMon = 0;
+  for (const mon of order.itemInfo?.items ?? []) {
+    for (const g of mon.discountInfo ?? []) {
+      const raw = g?.itemDiscountPriceDisplay;
+      if (raw == null || raw.trim() === '') continue;
+      tongMon += parseVndOrThrow(raw, 'discountInfo[].itemDiscountPriceDisplay');
+    }
+  }
+  if (tongMon !== money.discount) {
+    warnings.push(
+      `Tong giam gia tung mon (${tongMon}) khac muc giam cua don (${money.discount}) — ` +
+        'co the co loai giam gia chua hieu, xem JSON tho',
+    );
+  }
+}
+
 function checkTotals(money: Money, items: CcmanyItem[], warnings: string[]): void {
   // Chot 1: tong cac dong mon phai bang subtotal. Neu lech thi hoac doc sot mon,
   // hoac hieu sai y nghia priceDisplay.
@@ -198,14 +253,19 @@ function checkTotals(money: Money, items: CcmanyItem[], warnings: string[]): voi
     }
   }
 
-  // Chot 2: quan he total = subtotal - discount - tax. Ca hai don mau deu co
-  // tax = 0 nen quan he nay CHUA duoc kiem chung khi thue khac 0 — chot nay ton
-  // tai chinh de don co thue dau tien tu lo ra thay vi am tham sai.
+  // Chot 2: quan he total = subtotal - discount + tax.
+  //
+  // CHOT NAY DA CUU MOT LAN THAT (02/09/2026): no keu len o don GF-497 va
+  // GF-806 vi luc do `discount` con bi dong cung bang 0. Khong co no thi hai
+  // don sai tien da di thang sang ccmany ma khong ai biet.
+  //
+  // Ca bon don mau deu co tax = 0 nen phan `+ tax` VAN chua duoc kiem chung —
+  // chot nay ton tai chinh de don co thue dau tien tu lo ra.
   if (money.subtotal !== null && money.total !== null) {
-    const expected = money.subtotal - 0 - money.tax;
+    const expected = money.subtotal - money.discount + money.tax;
     if (money.total !== expected) {
       warnings.push(
-        `total (${money.total}) khac subtotal - discount - tax (${expected}) — kiem tra lai cach hieu truong tien`,
+        `total (${money.total}) khac subtotal - discount + tax (${expected}) — kiem tra lai cach hieu truong tien`,
       );
     }
   }

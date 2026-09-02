@@ -1,0 +1,270 @@
+{
+  "order": {
+    "orderID": "00107747803-C8EDE2TKWF4ELN",
+    "driver": null,
+    "eater": {
+      "name": "Khach Test",
+      "mobileNumber": "+84 9000 0000 0",
+      "comment": "",
+      "address": null
+    },
+    "itemInfo": {
+      "count": 1,
+      "items": [
+        {
+          "name": "XÔI CHẢ MỰC",
+          "quantity": 1,
+          "fare": {
+            "currencySymbol": "₫",
+            "priceDisplay": "65.000",
+            "originalItemPriceDisplay": "55.000",
+            "beforeAdjustedPriceDisplay": "55.000",
+            "priceFloat": 65000,
+            "priceInMin": 65000
+          },
+          "comment": "",
+          "modifierGroups": [
+            {
+              "modifierGroupID": "VNMOG2026081309541950974",
+              "modifierGroupName": "Món gọi thêm",
+              "modifiers": [
+                {
+                  "modifierID": "VNMOD20260813095419027444",
+                  "modifierName": "Chả mực (1 cái)",
+                  "priceDisplay": "10.000",
+                  "quantity": 1,
+                  "revampedPriceDisplay": "10.000",
+                  "editedStatus": 0
+                }
+              ]
+            }
+          ],
+          "discountInfo": [
+            {
+              "discountName": "XÔI  Giảm 5.000₫",
+              "discountFunding": "",
+              "itemDiscountPriceDisplay": "5.000",
+              "isNewPromotion": false,
+              "discountType": "net"
+            }
+          ],
+          "itemID": "VNITE20260813094754059214",
+          "editedStatus": 0,
+          "weight": null,
+          "itemCode": "",
+          "specialItemType": "",
+          "soldByWeight": false,
+          "outOfStockInstruction": null,
+          "parentID": "",
+          "parentName": "",
+          "skuID": "",
+          "isAddedAsReplacement": false,
+          "image": "https://huawei-food-cms.grab.com/item/VNITE20260813094754059214/photos/menueditor_item_251002f5bdb5441cadd0734876c1d9a5_1787321775621823072.jpg",
+          "itemKey": "VNITE20260813094754059214-92a09adbddf64efaacfe901158ccfb6f",
+          "barcode": "",
+          "originalItem": null,
+          "outOfStockInstructionV2": {
+            "title": "REMOVE",
+            "replacementItems": null
+          },
+          "originalFare": null,
+          "isUneditable": false,
+          "itemTags": null,
+          "memberPriceInfo": null
+        }
+      ],
+      "merchantItems": null
+    },
+    "fare": {
+      "currencySymbol": "₫",
+      "totalInCent": 0,
+      "adjustmentByDriverInCent": 0,
+      "totalDisplay": "60.000",
+      "subTotalDisplay": "65.000",
+      "taxDisplay": "0",
+      "adjustmentByDriverDisplay": "",
+      "promotionDisplay": "5.000",
+      "deliveryFeeDisplay": "13.000",
+      "passengerTotalDisplay": "73.000",
+      "totalDiscountAmountDisplay": "5.000",
+      "reducedPriceDisplay": "77.000",
+      "revampedSubtotalDisplay": "60.000",
+      "cancelledDisplay": "0",
+      "taxRate": "0.0000",
+      "merchantChargeDisplay": "",
+      "isIncludeMerchantChargeTax": false,
+      "subtotalIncludeMerchantCharge": "65.000",
+      "chargeFeeDescription": {
+        "en": "Restaurant packaging charge",
+        "id": "Biaya kemasan resto",
+        "ms": "Caj pembungkusan dari restoran",
+        "th": "ค่าบรรจุภัณฑ",
+        "vi": "Phí đồ gói mang về",
+        "zh": "商家包装费",
+        "zh-Hant-TW": "餐廳包裝費用"
+      },
+      "smallOrderFeeDisplay": "0",
+      "serviceChargeFeeDisplay": "",
+      "serviceChargeFeeDescription": {
+        "en": "Service charge",
+        "id": "Biaya layanan",
+        "km": "ការគិតថ្លៃលើសេវាកម្ម",
+        "ms": "Caj Perkhidmatan",
+        "my": "ဝန်ဆောင်စရိတ်",
+        "ru": "Сервисный сбор",
+        "th": "ค่าบริการ",
+        "vi": "Phí dịch vụ",
+        "zh": "服务费",
+        "zh-hant-tw": "服務費用"
+      },
+      "daxPayMexFareDisplay": "0",
+      "mexCommissionDisplay": "0",
+      "onBehalfWithholdTaxDisplay": "0",
+      "mexVatAmountDisplay": "0",
+      "mexPitAmountDisplay": "0",
+      "originalPriceInMin": 65000,
+      "bcrsDepositDisplay": "",
+      "bcrsDepositInCent": 0,
+      "bcrsDepositItemCount": 0
+    },
+    "times": {
+      "createdAt": "2026-09-02T05:16:50Z",
+      "deliveredAt": "2026-09-02T05:26:50Z",
+      "completedAt": "2026-09-02T05:17:27Z",
+      "expiredAt": "2026-09-02T05:21:58Z",
+      "acceptedAt": "2026-09-02T05:17:13Z",
+      "cancelledAt": null,
+      "readyAt": null,
+      "displayedAt": "2026-09-02T05:17:13Z",
+      "driverArriveRestoAt": null,
+      "preparationCompletedAt": null
+    },
+    "state": "ORDER_IN_PREPARE",
+    "merchant": {
+      "ID": "5-C8DEEF3WNNVGCJ"
+    },
+    "deliveryTaskpoolStatus": "ALLOCATING",
+    "preparationTaskpoolStatus": "ACCEPTED",
+    "cancelCode": 0,
+    "displayID": "GF-497",
+    "bookingCode": "A-9PKTB7EGWVILAV",
+    "paymentMethod": "Cashless",
+    "acceptedViaCall": false,
+    "acceptedViaAA": true,
+    "acknowledgedForAA": false,
+    "qsrModelType": 0,
+    "hasPromo": true,
+    "receiptAdditionalInfo": {
+      "supportFeatureFlags": {
+        "showCashToCollect": false
+      },
+      "printedCount": 0
+    },
+    "allowComplete": false,
+    "isTakeawayOrder": false,
+    "orderLevelDiscounts": null,
+    "flags": {
+      "showReceiptEaterAddress": false,
+      "showForceCompleteButton": false,
+      "hideOrderDriverInfo": false,
+      "isPrintOrderRevampReceipt": true,
+      "isGrabInitiatedSplitOrder": false,
+      "isAdsMarketingAttributed": false,
+      "isPaxNewCustomer": true,
+      "isPayOnCollect": false,
+      "merchantFeatureFlags": 2,
+      "isOPTPhase5Enabled": true,
+      "isManualAcceptMode": true,
+      "isM41Order": false,
+      "isTH5050Order": false,
+      "isCrossSell": false
+    },
+    "scheduledOrderInfo": null,
+    "isLargeOrder": false,
+    "isEditable": true,
+    "isOrderEdited": false,
+    "isOrderWithFriends": false,
+    "uneditableReason": 0,
+    "cutlery": 2,
+    "cancelBy": "",
+    "cancelRole": "",
+    "leadsGenData": {
+      "isDeliverByMex": false,
+      "isOrderValueLow": false,
+      "deliveryFee": "",
+      "timeLeftToEnableCompleteButton": 0,
+      "geAllocationStatus": 0,
+      "grabExpressDriver": null,
+      "paxDistanceToMex": 1918
+    },
+    "isBusyModeOrder": false,
+    "busyModeOrderPickupTime": "2026-09-02T05:16:50.494557905Z",
+    "busyModeApproach": 0,
+    "payMerchant": false,
+    "cancelledMsg": "",
+    "orderFlags": 4035229664170475500,
+    "orderStatsFlags": 32,
+    "receiptFlags": 0,
+    "dineInInfo": null,
+    "chatroomInfo": {
+      "roomID": "2820e1095066cab1ab8070d7fe04708c",
+      "status": 0
+    },
+    "membershipID": "",
+    "mcorInfo": null,
+    "mexReimbursementInfo": null,
+    "displayHighlights": {
+      "highlightItemCount": false,
+      "missingItemIDs": null,
+      "highMIWIRisk": false,
+      "highMIWIRiskItemIDs": []
+    },
+    "giftInfo": null,
+    "orderBookings": null,
+    "incidents": {
+      "hasError": false,
+      "data": []
+    },
+    "voucherInfo": null,
+    "stampInfo": {
+      "userConsentMsg": ""
+    },
+    "mexOPT": {
+      "submittedOPTFromMex": 1061,
+      "sourceOPT": 1,
+      "isPreparationTaskDelayed": false,
+      "isReadyButtonAbused": false,
+      "actualOPT": null,
+      "estimatedOPTDoneAt": "2026-09-02T05:34:54.995200273Z",
+      "remainEditableOPTInSec": 0,
+      "configuration": {
+        "timeAdjustment": {
+          "minimumOPT": 1,
+          "maximumOPT": 60,
+          "maximumAdditionOPT": 20,
+          "maximumSubtractionOPT": 59
+        },
+        "step": 1,
+        "timerDuration": 2,
+        "editOPTWindowInSec": 60,
+        "editableOPTWindowInSec": 180
+      }
+    },
+    "replacementInfo": null,
+    "isEditableByPax": false,
+    "preparationTaskID": "",
+    "orderChangeLog": null,
+    "isEditableByPaxV2": false,
+    "reservationDeposit": null,
+    "orderReadyPhotoDetail": null,
+    "th5050OrderDetail": null,
+    "upcomingData": null,
+    "recovery": {
+      "isRecoveryAllowed": false,
+      "settings": {
+        "maxRefundAmountInMin": 65000,
+        "refundReceivingAccount": ""
+      }
+    }
+  }
+}
