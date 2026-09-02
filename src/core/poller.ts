@@ -140,6 +140,17 @@ export class StorePoller {
     return this.dangXuLyDon;
   }
 
+  /**
+   * Quan ma poller nay theo doi.
+   *
+   * De cho nao cam mot danh sach poller (Resilience, khay) lay duoc ten quan ma
+   * khong phai giu them mot mang StoreConfig song song — hai mang song song la
+   * hai mang se lech nhau.
+   */
+  get store(): StoreConfig {
+    return this.deps.store;
+  }
+
   /** Moc poll thanh cong gan nhat, ms. Watchdog dua vao day. */
   get lastPollAtMs(): number | null {
     return this.lastPollAt;

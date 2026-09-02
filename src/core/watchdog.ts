@@ -53,3 +53,76 @@ export function quyetDinhWatchdog(dauVao: DauVaoWatchdog): QuyetDinhWatchdog {
 
   return 'tai-lai-trang';
 }
+
+// ── Nhieu quan ───────────────────────────────────────────────────────────────
+
+export interface QuanTheoDoi {
+  /** Ten de ghi nhat ky va bao Telegram. */
+  ten: string;
+  state: PollerState;
+  lastPollAt: number | null;
+}
+
+export interface DauVaoWatchdogNhieuQuan {
+  quan: QuanTheoDoi[];
+  batDauLuc: number;
+  canThiepLanCuoi: number | null;
+  now: number;
+  nguongMs: number;
+}
+
+export interface KetQuaWatchdogNhieuQuan {
+  quyetDinh: QuyetDinhWatchdog;
+  /**
+   * Ten cac quan dang dung im. Chi co nghia khi quyet dinh la tai-lai-trang.
+   *
+   * Can no de cau bao noi duoc "quan nao dang ket" — voi 14 quan thi mot dong
+   * "poll dung im 3 phut" khong kem ten la khong dung duoc vao viec gi.
+   */
+  quanDungIm: string[];
+}
+
+/**
+ * N poller, MOT cua so, nen nhieu nhat MOT lan tai lai.
+ *
+ * Day la khac biet quan trong nhat cua Task 5 so voi cach lam ngay tho. Neu moi
+ * quan mot bo canh rieng thi mot lan mang chap se sinh ra 14 lenh tai lai trang
+ * chong len nhau va 14 tin Telegram — trong khi chi co DUNG MOT trang de tai
+ * lai. Bo canh nay quet het cac quan, roi ha lenh mot lan.
+ *
+ * Quan dang `dung` (nguoi dung tam dung) va `mat-phien` (phai co nguoi dang
+ * nhap, tai lai khong cuu duoc) khong bao gio la ly do tai lai — quy tac do do
+ * quyetDinhWatchdog() giu, o day chi lap lai cho tung quan.
+ */
+export function quyetDinhWatchdogNhieuQuan(
+  dauVao: DauVaoWatchdogNhieuQuan,
+): KetQuaWatchdogNhieuQuan {
+  const { quan, batDauLuc, canThiepLanCuoi, now, nguongMs } = dauVao;
+
+  const dungIm = quan.filter(
+    (q) =>
+      quyetDinhWatchdog({
+        state: q.state,
+        lastPollAt: q.lastPollAt,
+        batDauLuc,
+        // CO Y truyen null: chot chong da lien tiep duoc ap MOT LAN cho ca cum
+        // o duoi, chu khong phai tung quan mot. Ap o day thi ket qua van dung,
+        // nhung `quanDungIm` se rong ngay sau mot lan tai lai va cau bao mat
+        // ten quan — dung luc nguoi doc can no nhat.
+        canThiepLanCuoi: null,
+        now,
+        nguongMs,
+      }) === 'tai-lai-trang',
+  );
+
+  if (dungIm.length === 0) return { quyetDinh: 'khong-lam-gi', quanDungIm: [] };
+
+  // Vua tai lai xong thi cho het mot nguong. Tai lai mat vai giay, va trong
+  // khoang do chua quan nao kip poll thanh cong — khong cho thi se da cua so
+  // lien tuc moi 30 giay.
+  if (canThiepLanCuoi !== null && now - canThiepLanCuoi < nguongMs) {
+    return { quyetDinh: 'khong-lam-gi', quanDungIm: dungIm.map((q) => q.ten) };
+  }
+
+  return { quyetDinh: 'tai-lai-trang', quanDungIm: dungIm.map((q) => q.ten) };
+}

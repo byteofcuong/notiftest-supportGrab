@@ -215,4 +215,123 @@ describe('treKhoiDauMs', () => {
       }
     }
   });
+
+  // Khong quan nao duoc tre am — setTimeout(-100) chay ngay, tuc la mat rai.
+  it('khong bao gio tra so am', () => {
+    for (const soQuan of [0, 1, 2, 14]) {
+      for (let i = -2; i < soQuan + 2; i++) {
+        expect(treKhoiDauMs(i, soQuan, 5000), `${i}/${soQuan}`).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  /**
+   * Hai quan khac nhau khong duoc trung diem khoi dau — trung la dung lai canh
+   * don cuc ma viec rai sinh ra de tranh.
+   */
+  it('14 quan cho ra 14 diem khoi dau doi mot khac nhau', () => {
+    const tre = Array.from({ length: 14 }, (_, i) => treKhoiDauMs(i, 14, 5000));
+    expect(new Set(tre).size).toBe(14);
+  });
+
+  // Cau hinh la: 0 quan, hoac nhip 0. Khong duoc nem, khong duoc ra NaN.
+  it('cau hinh la van tra so hop le', () => {
+    for (const [i, n, nhip] of [
+      [0, 0, 5000],
+      [3, 0, 5000],
+      [0, 14, 0],
+      [5, 14, 0],
+    ] as const) {
+      const t = treKhoiDauMs(i, n, nhip);
+      expect(Number.isFinite(t), `${i}/${n}/${nhip}`).toBe(true);
+      expect(t).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  // Nhip cham (quan dong cua, 30 giay) van phai rai deu trong nhip do.
+  it('nhip cham thi rai rong ra theo dung ti le', () => {
+    expect(treKhoiDauMs(1, 2, 30_000)).toBe(15_000);
+    expect(treKhoiDauMs(7, 14, 70_000)).toBe(35_000);
+  });
+});
+
+describe('gopTrangThai — canh nhieu quan that', () => {
+  /**
+   * 14 quan, mot quan mat phien, mot quan loi, mot quan tam dung, con lai chay.
+   * Day la canh se gap that vao mot buoi chieu ban hang, va moi con so trong
+   * dong trang thai deu phai dung cung luc.
+   */
+  it('14 quan lan lon du trang thai van ra dung tung con so', () => {
+    const ds = [
+      ...Array.from({ length: 11 }, (_, i) => quan(`OK${i}`, { soDonHomNay: 2 })),
+      quan('MAT', { state: 'mat-phien', soDonHomNay: 1 }),
+      quan('LOI', { state: 'loi', lastError: 'HTTP 500', soDonHomNay: 3 }),
+      quan('DUNG', { state: 'dung', soDonHomNay: 5 }),
+    ];
+    const gop = gopTrangThai(ds);
+
+    expect(gop?.state).toBe('mat-phien');
+    expect(gop?.soDonHomNay).toBe(11 * 2 + 1 + 3 + 5);
+    expect(gop?.lastError).toBe('LOI: HTTP 500');
+  });
+
+  // Gop khong duoc phu thuoc thu tu quan trong config/stores.json.
+  it('doi thu tu quan khong doi ket qua gop', () => {
+    const ds = [
+      quan('A', { soDonHomNay: 1, lastPollAt: '2026-09-02T03:00:00.000Z' }),
+      quan('B', { state: 'loi', lastError: 'X', lastPollAt: '2026-09-02T02:00:00.000Z' }),
+      quan('C', { soDonHomNay: 4, quanDangMo: false }),
+    ];
+    const xuoi = gopTrangThai(ds);
+    const nguoc = gopTrangThai([...ds].reverse());
+
+    expect(nguoc?.state).toBe(xuoi?.state);
+    expect(nguoc?.soDonHomNay).toBe(xuoi?.soDonHomNay);
+    expect(nguoc?.lastPollAt).toBe(xuoi?.lastPollAt);
+    expect(nguoc?.quanDangMo).toBe(xuoi?.quanDangMo);
+  });
+
+  it('mot quan duy nhat thi gop ra dung y nguyen stats cua no', () => {
+    const mot = quan('A', {
+      state: 'loi',
+      lastError: 'HTTP 500',
+      soDonHomNay: 9,
+      donGanNhat: { orderCode: 'GF-1', total: 1000, at: '2026-09-02T02:00:00.000Z' },
+    });
+    expect(gopTrangThai([mot])).toEqual(mot.stats);
+  });
+
+  // Ten quan co dau khong duoc bi bien dang khi ghep vao cau loi.
+  it('ten quan tieng Viet giu nguyen dau trong cau loi', () => {
+    const ds = [quan('A'), quan('Quán Bến Thành', { state: 'loi', lastError: 'HTTP 500' })];
+    expect(gopTrangThai(ds)?.lastError).toBe('Quán Bến Thành: HTTP 500');
+  });
+
+  // Quan dau tien bao loi thi lay loi do; quan sau bao loi khac khong duoc de
+  // len truoc — nguoi doc can mot cau on dinh, khong nhay qua nhay lai.
+  it('nhieu quan cung loi thi lay loi cua quan dau trong danh sach', () => {
+    const ds = [
+      quan('A', { state: 'loi', lastError: 'Loi A' }),
+      quan('B', { state: 'loi', lastError: 'Loi B' }),
+    ];
+    expect(gopTrangThai(ds)?.lastError).toBe('A: Loi A');
+  });
+
+  /**
+   * Don gan nhat phai la don MOI nhat theo thoi gian, khong phai theo thu tu
+   * quan. So sanh chuoi ISO truc tiep chi dung khi moi moc cung dinh dang va
+   * cung mui gio — test nay ghim gia dinh do.
+   */
+  it('don gan nhat so theo thoi gian, khong theo thu tu quan', () => {
+    const ds = [
+      quan('A', { donGanNhat: { orderCode: 'MOI', total: 1, at: '2026-09-02T09:59:00.000Z' } }),
+      quan('B', { donGanNhat: { orderCode: 'CU', total: 1, at: '2026-09-02T10:00:00.000Z' } }),
+    ];
+    expect(gopTrangThai(ds)?.donGanNhat?.orderCode).toBe('CU');
+    expect(gopTrangThai([...ds].reverse())?.donGanNhat?.orderCode).toBe('CU');
+  });
+
+  it('khong quan nao co don thi don gan nhat la null', () => {
+    expect(gopTrangThai([quan('A'), quan('B')])?.donGanNhat).toBeNull();
+  });
 });

@@ -680,22 +680,13 @@ app.whenReady().then(async () => {
     // luc khoi dong va luc thoat thi mot lan giet cung o giua van mat phien.
     setInterval(() => void grabWindow?.luuPhien(), 5 * 60_000);
 
-    // TAM THOI CHI CANH QUAN DAU TIEN. Resilience van mang hop dong mot quan
-    // (mot `store`, mot `poller`); Task 5 doi no sang canh ca N poller. Noi to
-    // ra o day thay vi de im, vi trong khoang giua hai task nay mot quan khac
-    // bi ket se KHONG duoc tai lai trang.
-    if (stores.length > 1) {
-      logger.warn(
-        `Watchdog tam thoi chi canh quan ${store.storeName} trong ${stores.length} quan - ` +
-          'cac quan con lai chua co lop tu tai lai trang (Task 5)',
-      );
-    }
     resilience = new Resilience({
       config,
-      store,
       logger,
       grabWindow,
-      poller: pollers.get(store.grabMerchantID)!,
+      // MOT bo canh cho tat ca. Xem ResilienceDeps.pollers de biet vi sao
+      // khong phai moi quan mot bo.
+      pollers: [...pollers.values()],
       telegram,
       probe: probeGrab,
       trangThaiPhien: () => {

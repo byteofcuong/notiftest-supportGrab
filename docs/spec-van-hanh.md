@@ -567,9 +567,23 @@ tức là các lớp bảo vệ nằm ngoài vòng lặp lấy đơn:
 | Reload trang định kỳ | Mỗi 60 phút; hoãn lại nếu đang xử lý dở một đơn | ✅ đã làm |
 | Poll đứng im không báo lỗi | Watchdog theo **mốc poll thành công gần nhất**, không theo URL | ✅ đã làm |
 | Nhịp tim định kỳ | Telegram báo còn sống, mỗi 30 phút | ✅ đã làm |
+| Nhiều quán cùng kẹt | **Một** bộ canh cho N poller — một lệnh tải lại, một tin Telegram | ✅ đã làm |
 | Đĩa đầy dần | Xoá `data/raw/` quá hạn (6h/lần), xoay vòng log ở 2 MB × 4 file | ✅ đã làm |
 | Tự chạy cùng Windows | `app.setLoginItemSettings` — chỉ có tác dụng ở bản đóng gói | ✅ đã làm |
 | Tiến trình Node chết | Task Scheduler *Restart on failure* | ⏳ Task 12 |
+
+**Một bộ canh, N poller.** Ba trong bốn đồng hồ ở đây là việc **toàn cục**, vì chỉ có *một*
+cửa sổ Grab: mở lại cửa sổ, tải lại trang, nhịp tim, dọn rác. Chỉ watchdog mới xét theo từng
+quán — và kể cả nó cũng chỉ được hạ **một** lệnh tải lại. Làm mỗi quán một bộ `Resilience` thì
+một lần mạng chập sẽ sinh 14 lệnh tải lại chồng lên nhau (mỗi lệnh huỷ fetch của lệnh trước) và
+14 tin Telegram liên tiếp — đủ để người nhận tắt thông báo của bot, và tắt luôn cả cảnh báo thật.
+
+Hai chỗ cùng hỏi "lần poll gần nhất là bao giờ" nhưng lấy **ngược nhau**, có chủ đích:
+
+| Chỗ dùng | Lấy mốc | Vì sao |
+|---|---|---|
+| Hiển thị (khay, bảng điều khiển) | **cũ nhất** | Mới nhất sẽ giấu mất quán đang kẹt: 13 quán chạy tốt làm dòng "poll lúc 14:03" luôn tươi |
+| Gửi bù Telegram | **mới nhất** | Câu hỏi là "mạng đã về chưa" — *bất kỳ* lượt poll nào thành công cũng trả lời được |
 
 > ⚠️ Watchdog **phải** bám vào mốc poll thành công, **không** bám vào URL của trang.
 > Đã quan sát được: Grab tự nhảy `/profile/logout` → trang đăng nhập → quay lại trong
