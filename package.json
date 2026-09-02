@@ -10,6 +10,7 @@
     "build:ts": "tsc",
     "dev": "npm run build && node scripts/dev.mjs",
     "test": "vitest run",
+    "do-tai": "npm run build:ts && node scripts/do-tai.mjs",
     "test:watch": "vitest",
     "fixtures": "node scripts/extract-fixtures.mjs",
     "build:renderer": "node scripts/copy-renderer.mjs",

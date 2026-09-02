@@ -508,6 +508,73 @@ tác dụng khi đang theo dõi **đúng một** quán; từ hai quán trở lê
 
 ---
 
+### 7.3 Đo tải thật
+
+```
+npm run do-tai -- --bo-dau=60
+npm run do-tai -- --bo-dau=60 "%LOCALAPPDATA%\NotiftestGrab\data\logs\app.log"
+```
+
+Đọc nhật ký `DEV_GHI_MANG` rồi in báo cáo. **Luôn dùng `--bo-dau`**: trang Grab bắn vài chục
+request trong hai giây đầu khi tải lần đầu, và cái đỉnh đó che mất đỉnh thật của nhịp poll.
+
+Báo cáo tách **hai** con số đỉnh, và con số thứ hai mới dùng được:
+
+| Con số | Nghĩa |
+|---|---|
+| `DINH ca trang` | Mọi request trên miền grab.com, kể cả thứ trang Grab tự gọi |
+| `DINH cong cu` | Chỉ bốn endpoint công cụ dùng — **thứ duy nhất chỉnh được** |
+
+Chặn theo **đỉnh**, không theo trung bình: 14 quán rải đều thì trung bình 3 req/s mà đỉnh cũng
+chỉ 3; 14 quán dồn cục thì trung bình vẫn 3 nhưng đỉnh là 14 — và chính cái đỉnh đó mới lãnh `429`.
+
+#### Đo được ngày 02/09/2026 — 3 quán, 105 giây chạy ổn định
+
+```
+Tong loi goi:   114        Trung binh: 1.09 req/s
+DINH ca trang:  9 req      DINH cong cu: 9 req
+Ma loi:         khong co ma nao ngoai 2xx
+```
+
+Ba điều rút ra, cả ba đều **không** đoán được nếu không đo:
+
+**a. Mỗi lời gọi API tốn HAI request, không phải một.** Đếm được 105 `GET` và 91 `OPTIONS` — mỗi
+lời gọi kèm một CORS preflight, vì fetch chạy từ `merchant.grab.com` sang `api.grab.com` với
+header riêng. Nghĩa là **tải thật gấp đôi** mọi ước lượng tính từ số nhịp poll. Ước lượng ~3 req/s
+cho 14 quán ở §7.1 phải đọc lại thành **~6 req/s**.
+
+**b. Trang Grab tự poll thêm cho quán nó đang hiển thị.** Mỗi phút có 4–5 lời gọi
+`orders-pagination` cho đúng mã quán đang mở trên màn hình, ngoài nhịp poll của công cụ. Phần này
+**không tắt được**, nhưng cũng không tăng theo số quán — nó bám vào một quán duy nhất.
+
+**c. Rải lệch pha giữ được, không trôi.** Hai quán đang mở cách nhau ổn định 1,3–1,4 giây suốt hai
+phút, mỗi quán nhịp 5,15 giây. Chuỗi `setTimeout` nối tiếp không làm mất pha như lo ngại.
+
+Quán thứ ba đóng cửa nên chạy nhịp 30 giây (`POLL_INTERVAL_CLOSED_MS`) — **đó là hành vi đúng**,
+không phải quán bị bỏ sót. Đọc báo cáo thấy một quán ít lời gọi hơn hẳn thì kiểm giờ mở cửa trước
+khi nghi công cụ.
+
+RAM tiến trình chính sau 2 phút: **117 MB**.
+
+#### Suy ra cho 14 quán
+
+Giả sử cả 14 quán đều mở:
+
+```
+orders-pagination   14 / 5s   = 2,8 req/s
+open-status         14 / 60s  = 0,23 req/s
+                              ~ 3 req/s  x2 (preflight)  ~ 6 req/s
+```
+
+Đỉnh thì thấp hơn nhiều nhờ rải lệch pha: `5000ms / 14 ≈ 357ms` một quán, tức trong bất kỳ giây
+nào cũng chỉ khoảng 3 quán bắn → **~6 request/giây đỉnh**. Vẫn phải đo lại bằng `npm run do-tai`
+khi chạy đủ 14 quán, vì con số trên là **suy ra chứ chưa đo**.
+
+Nếu thấy `429`: giãn `POLL_INTERVAL_MS`, **không** cắt bớt lời gọi. Cắt `open-status` chỉ tiết
+kiệm 0,23 req/s mà mất khả năng biết quán đóng hay mở.
+
+---
+
 ## 8. Máy tính phải ở trạng thái nào
 
 Câu hỏi hay gặp nhất, nên liệt kê thẳng:
