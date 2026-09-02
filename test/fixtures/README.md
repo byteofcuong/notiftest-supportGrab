@@ -28,6 +28,7 @@ thật thì nó ném lỗi thay vì ghi.
 | `detail-gf547.json` | `2.har` 04:26:10 | **Fixture quan trọng nhất** — xem bên dưới |
 | `list-empty.json` | `1.har` 10:04:20 | Danh sách rỗng, `pollInterval: 300` |
 | `open-status.json` | `1.har` 10:04:20 | `isOpen: true` |
+| `store-search.json` | **viết tay** | Danh sách quán trong nhóm — xem cảnh báo bên dưới |
 
 ## Vì sao `detail-gf547.json` là fixture quan trọng nhất
 
@@ -57,3 +58,21 @@ bằng chứng Grab không trừ khuyến mãi vào tiền quán, nên `discount
 Chưa có mẫu nào cho: đơn **đã được xác nhận** (`acceptedAt != null`), đơn **có tài xế**
 (`driver != null`), đơn **có thuế** (`taxDisplay != 0`), đơn **đã hoàn tất**. Khi gặp ngoài
 thực tế thì lưu lại `data/raw/` rồi bổ sung vào đây.
+
+## `store-search.json` là fixture **viết tay**, không phải bản chụp
+
+Mọi file khác trong thư mục này là response thật, chỉ thay ba trường PII. File này thì **không**:
+nó được gõ tay theo hình dạng đã đo được trên tài khoản thật (14 quán) và ghi lại ở
+`docs/spec-van-hanh.md` §7.1b. Nhật ký chứa response thật đã bị xoay mất trước khi kịp cắt ra.
+
+Nghĩa là **tên trường thì đáng tin, giá trị thì không**. Cụ thể `"status": "ACTIVE"` là suy đoán —
+chưa ai thấy Grab trả đúng chuỗi đó. Vì vậy `quanCoTheChon()` đọc `status` theo kiểu *hỏng thì cho
+qua*: chỉ hạ cờ khi gặp đúng một trong năm chuỗi chắc chắn là "đã ngừng", còn lạ thì vẫn coi là
+đang hoạt động. Đoán sai giá trị ở đây tốn nhiều nhất là một dòng thừa trong bảng chọn, chứ không
+giấu mất quán đang bán.
+
+### Thay bằng bản thật thế nào
+
+Chạy một lần với `DEV_THU_CHEO=true` và phiên Grab còn sống, rồi bấm sang một quán khác. Probe ghi
+nguyên văn response ra `data/raw/store-search.json` (xem `src/main/thu-cheo.ts`). Đổi tên và địa chỉ
+quán sang giá trị giả rồi chép đè lên file này, và **xoá mục cảnh báo này đi**.

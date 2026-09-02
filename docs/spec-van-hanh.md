@@ -459,9 +459,16 @@ Trả về, ở cấp **nhóm** chứ không phải cấp quán:
 }
 ```
 
-Một lời gọi ra hết mã lẫn **tên thật**. Nghĩa là bảng chọn quán không cần ai gõ mã, và `status`
-cho phép bỏ qua quán đã ngừng hoạt động. `limit=100` lấy theo đúng trang Grab; trên 100 quán
-thì phải phân trang bằng `offset`.
+Một lời gọi ra hết mã lẫn **tên thật**. Nghĩa là bảng chọn quán không cần ai gõ mã.
+`limit=100` lấy theo đúng trang Grab; trên 100 quán thì phải phân trang bằng `offset`.
+
+**`status` chỉ được dùng để hạ cờ, không được dùng để lọc bỏ.** Tập giá trị của nó mới đo được
+một lần trên một tài khoản, nên `quanCoTheChon()` (`src/grab/quan.ts`) đọc theo kiểu *hỏng thì cho
+qua*: chuỗi lạ vẫn coi là đang hoạt động, và quán đã ngừng thì xếp cuối bảng chứ không biến mất.
+Hai kiểu sai lệch không hề cân nhau — hiện thừa một quán đã ngừng thì người cài không tick, còn
+giấu mất một quán đang bán thì quán đó chạy cả ngày không lên đơn nào mà không có cảnh báo nào.
+Riêng `CLOSED` **cố ý không** nằm trong danh sách "đã ngừng": quán đóng cửa ngoài giờ bán vẫn là
+quán phải theo dõi.
 
 ### 7.2 File cấu hình là nguồn sự thật duy nhất
 

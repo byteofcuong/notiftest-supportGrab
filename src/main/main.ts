@@ -539,7 +539,7 @@ app.whenReady().then(async () => {
     onMaQuanMoi: (ma) => {
       const daChon = stores[0]?.grabMerchantID;
       if (!config.devThuCheo || !grabClient || !daChon || ma === daChon) return;
-      void chayVaGhiKetLuan(grabClient, ma, daChon, logger);
+      void chayVaGhiKetLuan(grabClient, ma, daChon, logger, config.dataDir);
     },
   });
   // Bat TRUOC khi mo trang, khong thi bo lo dung nhung loi goi luc tai lan dau.

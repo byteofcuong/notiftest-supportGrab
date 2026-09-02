@@ -1,0 +1,33 @@
+{
+  "merchantGroupID": "VNMG20250000000000001",
+  "merchants": [
+    {
+      "merchantID": "5-C8DEEF3TEXVVA2",
+      "merchantName": "Quán Test Bến Thành",
+      "city": "Ho Chi Minh",
+      "address": "12 Le Loi, Quan 1",
+      "status": "ACTIVE"
+    },
+    {
+      "merchantID": "5-C7XUNYEVEADYN2",
+      "merchantName": "Quán Test Đống Đa",
+      "city": "Ha Noi",
+      "address": "34 Nguyen Luong Bang, Dong Da",
+      "status": "ACTIVE"
+    },
+    {
+      "merchantID": "5-C6MMQQ2VCJ7XLT",
+      "merchantName": "Quán Test An Hải",
+      "city": "Da Nang",
+      "address": "56 Ngo Quyen, Son Tra",
+      "status": "ACTIVE"
+    },
+    {
+      "merchantID": "5-C5KKPP1VBH6WKS",
+      "merchantName": "Quán Test Đã Đóng",
+      "city": "Ho Chi Minh",
+      "address": "78 Cach Mang Thang Tam, Quan 3",
+      "status": "INACTIVE"
+    }
+  ]
+}

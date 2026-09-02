@@ -18,7 +18,11 @@
  * that, va ket qua chi co y nghia luc dang khao sat.
  */
 
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import type { Logger } from '../core/log.js';
+import { quanCoTheChon } from '../grab/quan.js';
 import { SessionExpiredError } from '../grab/client.js';
 import type { GrabClient } from '../grab/client.js';
 
@@ -111,32 +115,29 @@ export async function thuGoiCheoQuan(
 }
 
 /**
- * Doc hinh dang phan hoi cua endpoint danh sach quan.
+ * Ghi nguyen van phan hoi danh sach quan ra `data/raw/store-search.json`.
  *
- * Chua co fixture nen chua biet ten truong. Thay vi doan, in ra khoa cap mot va
- * mot ban ghi mau — du de khai bao kieu cho dung o buoc sau, va du de biet
- * endpoint co that su tra ve du 14 quan hay khong.
+ * Vi sao can: fixture `test/fixtures/store-search.json` hien la HANG VIET TAY
+ * theo hinh dang do duoc (docs/spec-van-hanh.md §7.1b), KHONG phai ban chup —
+ * nhat ky chua phan hoi that da bi xoay mat truoc khi kip cat ra. Lan chay co
+ * phien Grab tiep theo se de lai ban that o day de thay vao, sau khi doi ten
+ * quan sang ten gia nhu cac fixture khac.
+ *
+ * Ten va dia chi quan la du lieu KINH DOANH chu khong phai du lieu khach,
+ * nhung `data/` van nam trong gitignore nen no khong tu leo len remote.
  */
-export function moTaDanhSachQuan(phanHoi: unknown): Record<string, unknown> {
-  if (phanHoi === null || typeof phanHoi !== 'object') {
-    return { kieu: typeof phanHoi };
+function luuDanhSachQuanTho(phanHoi: unknown, thuMucDuLieu: string, logger: Logger): void {
+  try {
+    const dir = join(thuMucDuLieu, 'raw');
+    mkdirSync(dir, { recursive: true });
+    const tep = join(dir, 'store-search.json');
+    writeFileSync(tep, JSON.stringify(phanHoi, null, 2), 'utf8');
+    logger.warn(`Da luu phan hoi tho de lam fixture: ${tep}`);
+  } catch (err) {
+    // Mat ban chup thi chi thiet cho viec lam fixture. Phep thu §7.1 van co gia
+    // tri, nen khong de loi ghi dia lam hong ket luan.
+    logger.warn('Khong luu duoc phan hoi danh sach quan', err);
   }
-  const gocKhoa = Object.keys(phanHoi as Record<string, unknown>);
-  // Mang quan co the nam ngay goc, hoac long trong mot khoa nao do.
-  for (const khoa of gocKhoa) {
-    const gt = (phanHoi as Record<string, unknown>)[khoa];
-    if (Array.isArray(gt)) {
-      return {
-        khoaCapMot: gocKhoa,
-        mangNamO: khoa,
-        soQuan: gt.length,
-        khoaCuaMotQuan: gt.length > 0 && typeof gt[0] === 'object' && gt[0] !== null
-          ? Object.keys(gt[0] as Record<string, unknown>)
-          : [],
-      };
-    }
-  }
-  return { khoaCapMot: gocKhoa, mangNamO: null };
 }
 
 /** Chay phep thu roi ghi ket luan that to trong nhat ky. */
@@ -145,6 +146,8 @@ export async function chayVaGhiKetLuan(
   quanTrenManHinh: string,
   quanGoiApi: string,
   logger: Logger,
+  /** Goc `data/` de luu phan hoi tho. null thi bo qua viec luu. */
+  thuMucDuLieu: string | null = null,
 ): Promise<KetQuaThuCheo> {
   logger.warn('=== THU GOI CHEO QUAN (DEV_THU_CHEO) ===', {
     cuaSoDangMo: quanTrenManHinh,
@@ -154,11 +157,18 @@ export async function chayVaGhiKetLuan(
   logger.warn('Ket qua thu cheo quan', kq);
   logger.warn(`=== ${dienGiai(kq)} ===`);
 
-  // Tien the do luon endpoint danh sach quan: du §7.1 tra loi the nao thi cung
-  // can no de biet nhom co nhung quan gi, va de lay TEN THAT thay cho ma quan.
+  // Tien the do luon endpoint danh sach quan: §7.1 da tra loi xong, nhung van
+  // can no de biet nhom co nhung quan gi va de lay TEN THAT thay cho ma quan.
   try {
     const ds = await client.danhSachQuanTrongNhom(quanTrenManHinh);
-    logger.warn('=== DANH SACH QUAN TRONG NHOM ===', moTaDanhSachQuan(ds));
+    if (thuMucDuLieu !== null) luuDanhSachQuanTho(ds, thuMucDuLieu, logger);
+    const quan = quanCoTheChon(ds);
+    logger.warn(`=== DANH SACH QUAN TRONG NHOM: ${quan.length} quan ===`, {
+      dangHoatDong: quan.filter((q) => q.dangHoatDong).length,
+      quan: quan.map(
+        (q) => `${q.merchantID} ${q.tenHienThi}${q.dangHoatDong ? '' : ` [${q.status ?? '?'}]`}`,
+      ),
+    });
   } catch (err) {
     logger.warn('Khong doc duoc danh sach quan trong nhom', err);
   }

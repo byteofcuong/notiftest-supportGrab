@@ -159,9 +159,29 @@ export interface GrabOpenStatusResponse {
 // GET /delvplatformapi/merchant/v1/merchant-group/store/search
 
 /**
- * CHUA PIN KIEU. Endpoint nay vua tim ra bang DEV_GHI_MANG va chua co fixture,
- * nen chua biet chac ten truong. De long de doc duoc ma khong doan bua; phep
- * thu se in ra hinh dang that, va luc do moi khai bao dung nhu cach da lam voi
- * don hang (chi khai nhung truong thuc su dung).
+ * Mot quan trong nhom. Do duoc bang DEV_GHI_MANG tren tai khoan that (14 quan);
+ * hinh dang ghi lai o docs/spec-van-hanh.md §7.1b.
+ *
+ * Response that con nhieu truong hon (modelType, menuDisplayOption, timezone,
+ * deliverOption...). Giu dung nep da lam voi don hang: chi khai nhung truong
+ * THUC SU dung, de khong tao cam giac an toan gia ve nhung truong chua ai doc.
  */
-export type GrabStoreSearchResponse = Record<string, unknown>;
+export interface GrabGroupStore {
+  /** Ma quan, chinh la thu dua vao header/query merchantID. Vd "5-C8DEEF3TEXVVA2". */
+  merchantID?: string;
+  /** Ten that cua quan, co dau tieng Viet. Day la ly do goi endpoint nay. */
+  merchantName?: string;
+  city?: string;
+  address?: string;
+  /**
+   * CHUA BIET HET TAP GIA TRI. Chi do duoc mot lan tren mot tai khoan, nen
+   * `quanCoTheChon()` doc no theo kieu HONG THI CHO QUA (xem src/grab/quan.ts),
+   * chu khong dam liet ke du.
+   */
+  status?: string;
+}
+
+export interface GrabStoreSearchResponse {
+  merchantGroupID?: string;
+  merchants?: GrabGroupStore[] | null;
+}
